@@ -235,7 +235,6 @@ unsigned char global_firmware_filename[PATH_MAX];
 #define COARSE_OFFSET_TARGET   15
 static int coarse_gain_min[3] = { 88, 88, 88 };    /* front, back, FI-60F 3rd plane */
 static int coarse_gain_max[3] = { 92, 92, 92 };
-static int fine_gain_target[3] = {185, 150, 170};  /* front, back, FI-60F is this ok? */
 
 /* ------------------------------------------------------------------------- */
 #define STRING_FLATBED SANE_I18N("Flatbed")
@@ -529,6 +528,8 @@ attach_one (const char *name)
         s->white_factor[0] = 1.0;
         s->white_factor[1] = 0.93;
         s->white_factor[2] = 0.98;
+        s->fine_gain_target[0] = 185; /* front */
+        s->fine_gain_target[1] = 150; /* back */
 
         s->source = SOURCE_ADF_FRONT;
         s->mode = MODE_LINEART;
@@ -561,6 +562,8 @@ attach_one (const char *name)
         s->white_factor[0] = 1.0;
         s->white_factor[1] = 0.93;
         s->white_factor[2] = 0.98;
+        s->fine_gain_target[0] = 185; /* front */
+        s->fine_gain_target[1] = 150; /* back */
 
         s->source = SOURCE_ADF_FRONT;
         s->mode = MODE_LINEART;
@@ -585,6 +588,8 @@ attach_one (const char *name)
         s->white_factor[0] = 0.95;
         s->white_factor[1] = 1.0;
         s->white_factor[2] = 1.0;
+        s->fine_gain_target[0] = 185; /* front */
+        s->fine_gain_target[1] = 185; /* S1100 has no back */
 
         s->source = SOURCE_ADF_FRONT;
         s->mode = MODE_LINEART;
@@ -607,6 +612,8 @@ attach_one (const char *name)
         s->white_factor[0] = 1.0;
         s->white_factor[1] = 0.93;
         s->white_factor[2] = 0.98;
+        s->fine_gain_target[0] = 185; /* fi-60F flatbed */
+        s->fine_gain_target[1] = 185;
 
         s->source = SOURCE_FLATBED;
         s->mode = MODE_COLOR;
@@ -630,6 +637,8 @@ attach_one (const char *name)
         s->white_factor[0] = 1.0;
         s->white_factor[1] = 0.93;
         s->white_factor[2] = 0.98;
+        s->fine_gain_target[0] = 185; /* fi-65F flatbed */
+        s->fine_gain_target[1] = 185;
 
         s->source = SOURCE_FLATBED;
         s->mode = MODE_COLOR;
@@ -3373,7 +3382,7 @@ finecal(struct scanner *s)
                 for (k = 0; k < 3; k++)
                 {
                     int pixvalue = s->lightcal.buffer[idx];
-                    float pixerror = (fine_gain_target[i] * s->white_factor[k] - pixvalue);
+                    float pixerror = (s->fine_gain_target[i] * s->white_factor[k] - pixvalue);
                     int oldgain = s->sendcal.buffer[idx * 2 + 1];
                     int newgain;
                     /* if we overshot the last correction, reduce the gain_slope */
