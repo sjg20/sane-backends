@@ -588,8 +588,8 @@ attach_one (const char *name)
         s->white_factor[0] = 0.95;
         s->white_factor[1] = 1.0;
         s->white_factor[2] = 1.0;
-        s->fine_gain_target[0] = 185; /* front */
-        s->fine_gain_target[1] = 185; /* S1100 has no back */
+        s->fine_gain_target[0] = 110; /* front */
+        s->fine_gain_target[1] = 110; /* S1100 has no back */
 
         s->source = SOURCE_ADF_FRONT;
         s->mode = MODE_LINEART;
