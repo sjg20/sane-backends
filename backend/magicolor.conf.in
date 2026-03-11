@@ -42,3 +42,6 @@ usb
 
 # Epson AcuLaser CX16NF
 usb 0x04b8 0x0868
+
+# Ricon SP 204SF/204SFN
+#usb 0x05ca 0x043e

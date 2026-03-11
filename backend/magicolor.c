@@ -107,6 +107,7 @@ static struct MagicolorCmd magicolor_cmd[] = {
   {"mc4690mf", CMD, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x12, NET, 0x00, 0x01, 0x02, 0x03},
   {"es2323am", CMD, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x12, NET, 0x00, 0x01, 0x02, 0x03},
   {"alcx16nf", CMD, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x12, NET, 0x00, 0x01, 0x02, 0x03},
+  {"ricoh204", CMD, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x12, NET, 0x00, 0x01, 0x02, 0x03},
 };
 
 static SANE_Int magicolor_default_resolutions[] = {150, 300, 600};
@@ -165,6 +166,18 @@ static struct MagicolorCap magicolor_cap[] = {
       {0, SANE_FIX(0x1390 * MM_PER_INCH / 600), 0}, {0, SANE_FIX(0x20dc * MM_PER_INCH / 600), 0},
   },
 
+  /* Ricoh SP 204SF/204SFN, USB ID 0x 05ca:043e */
+  {
+      0x043e, "ricoh204", "Ricoh SP 204SF/204SFN", ".1.3.6.1.4.1.367.1.1",
+      -1, 0x85,
+      600, {150, 600, 0}, magicolor_default_resolutions, 3,
+      8, magicolor_default_depths,
+      {1, 9, 0},
+      {0, SANE_FIX(0x13f8 * MM_PER_INCH / 600), 0}, {0, SANE_FIX(0x1b9c * MM_PER_INCH / 600), 0},
+      SANE_TRUE, SANE_FALSE,
+      {0, SANE_FIX(0x1390 * MM_PER_INCH / 600), 0}, {0, SANE_FIX(0x20dc * MM_PER_INCH / 600), 0},
+  },
+
 };
 
 static int MC_SNMP_Timeout = 2500;
@@ -172,6 +185,8 @@ static int MC_Scan_Data_Timeout = 15000;
 static int MC_Request_Timeout = 5000;
 
 #define ESTUDIO_DEVICE(s) ((s)->hw->cap->id == 0x8056)
+
+#define RICOH_DEVICE(s) ((s)->hw->cap->id == 0x043e)
 
 /****************************************************************************
  *   General configuration parameter definitions
@@ -264,6 +279,7 @@ print_params(const SANE_Parameters params)
 #define MAGICOLOR_SNMP_MAC_OID       ".1.3.6.1.2.1.2.2.1.6.1"
 #define MAGICOLOR_SNMP_DEVICE_TREE   ".1.3.6.1.4.1.18334.1.1.1.1.1"
 #define ESTUDIO_SNMP_DEVICE_TREE     ".1.3.6.1.4.1.1129.2.3.72.1"
+#define RICOH_SNMP_DEVICE_TREE       ".1.3.6.1.4.1.367"
 
 /* We don't have a packet wrapper, which holds packet size etc., so we
    don't have to use a *read_raw and a *_read function... */
@@ -338,8 +354,8 @@ static SANE_Status
 sanei_magicolor_net_open(struct Magicolor_Scanner *s)
 {
 	SANE_Status status;
-	unsigned char buf[5];
-
+	unsigned char buf[64];
+	unsigned char len = 0;
 	ssize_t read;
 	struct timeval tv;
 	struct MagicolorCmd *cmd = s->hw->cmd;
@@ -369,17 +385,30 @@ sanei_magicolor_net_open(struct Magicolor_Scanner *s)
 	buf[0] = cmd->net_wrapper_cmd;
 	buf[1] = cmd->net_lock;
 	buf[2] = 0x00;
-	/* Copy the device's USB id to bytes 3-4: */
-	if (ESTUDIO_DEVICE(s)) {
-		buf[3] = (s->hw->cap->id >> 8) & 0xff;
-		buf[4] = s->hw->cap->id & 0xff;
+
+  	if (RICOH_DEVICE(s)) {
+  	    /*  Ricoh SP 204SFN handshake */
+	    buf[3] = 0x01;
+	    buf[4] = 0x43;
+	    buf[5] = 0x4f;
+	    buf[6] = 0x50;
+	    buf[7] = 0x41;
+	    len = 8;
 	} else {
-		buf[3] = s->hw->cap->id & 0xff;
-		buf[4] = (s->hw->cap->id >> 8) & 0xff;
+	    /* Standard handshake with USB ID */
+	    /* Copy the device's USB id to bytes 3-4: */
+	    if (ESTUDIO_DEVICE(s)) {
+			buf[3] = (s->hw->cap->id >> 8) & 0xff;
+			buf[4] = s->hw->cap->id & 0xff;
+		} else {
+			buf[3] = s->hw->cap->id & 0xff;
+			buf[4] = (s->hw->cap->id >> 8) & 0xff;
+		}
+		len = 5;
 	}
 
 	DBG(32, "Proper welcome message received, locking the scanner...\n");
-	sanei_magicolor_net_write_raw(s, buf, 5, &status);
+	sanei_magicolor_net_write_raw(s, buf, len, &status);
 
 	read = sanei_magicolor_net_read(s, buf, 3, &status);
 	if (read != 3)
@@ -418,11 +447,13 @@ sanei_magicolor_net_close(struct Magicolor_Scanner *s)
 
 #define SANE_MAGICOLOR_VENDOR_ID	(0x132b)
 #define SANE_EPSON_VENDOR_ID		(0x04b8)
+#define SANE_RICOH_VENDOR_ID            (0x05ca)
 
 SANE_Word sanei_magicolor_usb_product_ids[] = {
   0x2089, /* magicolor 1690MF */
   0x2079, /* magicolor 4690MF */
   0x0868, /* epson AL CX16NF */
+  0x043e, /* Ricoh SP 200SF / SP 204SFN */
   0				/* last entry - this is used for devices that are specified
 				   in the config file as "usb <vendor> <product>" */
 };
@@ -1735,7 +1766,7 @@ detect_usb(struct Magicolor_Scanner *s)
 	}
 
 	/* check the vendor ID to see if we are dealing with an MAGICOLOR device */
-	if (vendor != SANE_MAGICOLOR_VENDOR_ID && vendor != SANE_EPSON_VENDOR_ID) {
+	if (vendor != SANE_MAGICOLOR_VENDOR_ID && vendor != SANE_EPSON_VENDOR_ID && vendor != SANE_RICOH_VENDOR_ID) {
 		/* this is not a supported vendor ID */
 		DBG(1, "not an Magicolor device at %s (vendor id=0x%x)\n",
 		    s->hw->sane.name, vendor);
@@ -1979,8 +2010,16 @@ mc_network_discovery_handle (struct snmp_pdu *pdu, snmp_discovery_data *magic)
 					vp->val.objid, value_len) == 0) {
 				DBG (5, "%s: Device appears to be a estudio device (OID=%s)\n", __func__, device);
 			} else {
-				DBG (5, "%s: Device is not a e-STUDIO / Magicolor device\n", __func__);
-				return 0;
+				anOID_len = MAX_OID_LEN;
+				read_objid(RICOH_SNMP_DEVICE_TREE, anOID, &anOID_len);
+
+				if (netsnmp_oid_is_subtree (anOID, anOID_len,
+						vp->val.objid, value_len) == 0) {
+					DBG (5, "%s: Device appears to be a Ricoh device (OID=%s)\n", __func__, device);
+				} else {
+					DBG (5, "%s: Device is not a e-STUDIO / Magicolor / Ricoh device\n", __func__);
+					return 0;
+				}
 			}
 		}
 	}
@@ -2230,7 +2269,7 @@ attach_one_config(SANEI_Config __sane_unused__ *config, const char *line,
 
 		int numIds = sanei_magicolor_getNumberOfUSBProductIds();
 
-		if (vendor != SANE_MAGICOLOR_VENDOR_ID && vendor != SANE_EPSON_VENDOR_ID)
+		if (vendor != SANE_MAGICOLOR_VENDOR_ID && vendor != SANE_EPSON_VENDOR_ID && vendor != SANE_RICOH_VENDOR_ID)
 			return SANE_STATUS_INVAL; /* this is not a KONICA MINOLTA device */
 
 		sanei_magicolor_usb_product_ids[numIds - 1] = product;
