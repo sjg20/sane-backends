@@ -159,6 +159,17 @@
 
 static Avision_HWEntry Avision_Device_List [] =
   {
+    /* Brother PDS-6000F - duplex sheetfed + flatbed scanner (2026-03-26) */
+    { "BROTHER", "PDS-6000F",
+      0x04f9, 0x03c3,
+      "Brother", "PDS-6000F",
+      AV_INT_BUTTON | AV_CANCEL_BUTTON | AV_USE_GRAY_FILTER |
+      AV_NO_DETECT_ACCESSORIES | AV_MULTI_SHEET_SCAN | AV_DOES_NOT_KEEP_WINDOW | AV_DOES_NOT_KEEP_GAMMA,
+      { 0, {0, 0}, {{0, 0}, {0, 0}} }
+    },
+    /* comment="duplex\! sheetfed + flatbed scanner" */
+    /* status="experimental" */
+
     { NULL, NULL,
       0x0638, 0x2E59,
       "Avision", "AD345F",
@@ -4742,6 +4753,12 @@ get_double ( &(result[48] ) ));
 
   dev->inquiry_detect_accessories = BIT (result[93], 7);
 
+  if (Avision_Device_List [model_num].feature_type & AV_NO_DETECT_ACCESSORIES) {
+    DBG (1, "attach: overriding inquiry_detect_accessories (device flag)\n");
+    dev->inquiry_detect_accessories = 0;
+  }
+
+
   dev->inquiry_needs_calibration = BIT (result[50], 4);
 
   dev->inquiry_keeps_window = BIT (result[50], 1);
@@ -5171,6 +5188,14 @@ additional_probe (Avision_Scanner* s)
       return status;
   }
 
+
+  /* If accessories detection was skipped but the device has duplex
+     capability (from inquiry data), assume ADF is present. This
+     fixes adf-installed reporting and adds "ADF Front" source. */
+  if (!dev->inquiry_detect_accessories && dev->inquiry_duplex) {
+    DBG (1, "additional_probe: assuming ADF present (duplex device, accessories detect skipped)\n");
+    dev->inquiry_adf_present = SANE_TRUE;
+  }
   /* for a film scanner try to retrieve additional frame information */
   if (dev->scanner_type == AV_FILM) {
     status = get_frame_info (s);
@@ -8353,7 +8378,13 @@ reader_process (void *data)
 	  DBG (1, "reader_process: object position go-home failed!\n");
       }
 
-      status = release_unit (s, 0);
+      /* For ADF multi-sheet scans, use type 1 ("release paper") to
+         eject the sheet and prepare for the next one. Type 0 only
+         releases the device without ejecting. */
+      if (is_adf_scan (s) && (dev->hw->feature_type & AV_MULTI_SHEET_SCAN))
+        status = release_unit (s, 1);
+      else
+        status = release_unit (s, 0);
       if (status != SANE_STATUS_GOOD)
 	DBG (1, "reader_process: release_unit failed\n");
     }

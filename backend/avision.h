@@ -291,6 +291,9 @@ typedef struct Avision_HWEntry {
      when scanning multiple sheets. */
   #define AV_MULTI_SHEET_SCAN ((uint64_t)1<<43)
 
+  /* Brother PDS: reports SUPPORTS_ACCESSORIES_DETECT but the command fails */
+  #define AV_NO_DETECT_ACCESSORIES ((uint64_t)1<<44)
+
     /* maybe more ...*/
   uint64_t feature_type;
 
