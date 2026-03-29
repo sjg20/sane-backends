@@ -100,8 +100,10 @@ cleanup:
     DBG(10, "eSCL scan : [%s]\treal read (%ld)\n", sane_strstatus(status), scanner->real_read);
     if (scanner->real_read == 0)
     {
-       fclose(scanner->tmp);
-       scanner->tmp = NULL;
+       if (scanner->tmp) {
+           fclose(scanner->tmp);
+           scanner->tmp = NULL;
+       }
        return SANE_STATUS_NO_DOCS;
     }
     return (status);
