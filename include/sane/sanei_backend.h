@@ -120,6 +120,14 @@ extern SANE_Status ENTRY(get_parameters) (SANE_Handle, SANE_Parameters *);
 extern SANE_Status ENTRY(start) (SANE_Handle);
 extern SANE_Status ENTRY(read) (SANE_Handle, SANE_Byte *, SANE_Int,
                                 SANE_Int *);
+/* optional: a backend that has no sane_read_dup() leaves it undefined and
+   the stub reports SANE_STATUS_UNSUPPORTED */
+extern SANE_Status ENTRY(read_dup) (SANE_Handle, SANE_Byte *, SANE_Byte *,
+                                    SANE_Int, SANE_Int *, SANE_Int *)
+#if defined(__GNUC__) || defined(__clang__)
+  __attribute__ ((weak))
+#endif
+  ;
 extern SANE_Status ENTRY(set_io_mode) (SANE_Handle, SANE_Bool);
 extern SANE_Status ENTRY(get_select_fd) (SANE_Handle, SANE_Int *);
 extern void ENTRY(cancel) (SANE_Handle);
@@ -141,6 +149,7 @@ extern void ENTRY(exit) (void);
 #define sane_get_parameters(a,b)        ENTRY(get_parameters) (a,b)
 #define sane_start(a)                   ENTRY(start) (a)
 #define sane_read(a,b,c,d)              ENTRY(read) (a,b,c,d)
+#define sane_read_dup(a,b,c,d,e,f)      ENTRY(read_dup) (a,b,c,d,e,f)
 #define sane_set_io_mode(a,b)           ENTRY(set_io_mode) (a,b)
 #define sane_get_select_fd(a,b)         ENTRY(get_select_fd) (a,b)
 #define sane_cancel(a)                  ENTRY(cancel) (a)

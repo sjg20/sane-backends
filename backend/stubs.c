@@ -59,6 +59,16 @@ sane_read (SANE_Handle h, SANE_Byte *buf, SANE_Int maxlen, SANE_Int *lenp)
 }
 
 SANE_Status
+sane_read_dup (SANE_Handle h,
+               SANE_Byte *fbuf, SANE_Byte *bbuf, SANE_Int maxlen,
+               SANE_Int *flen, SANE_Int *blen)
+{
+  if (!ENTRY(read_dup))
+    return SANE_STATUS_UNSUPPORTED;
+  return ENTRY(read_dup) (h, fbuf, bbuf, maxlen, flen, blen);
+}
+
+SANE_Status
 sane_set_io_mode (SANE_Handle h, SANE_Bool non_blocking)
 {
   return ENTRY(set_io_mode) (h, non_blocking);
