@@ -91,6 +91,7 @@ enum fujitsu_Option
   OPT_SWCROP,
   OPT_SWSKIP,
   OPT_HALT_ON_CANCEL,
+  OPT_BUFFER_SIZE,
 
   OPT_ENDORSER_GROUP,
   OPT_ENDORSER,
@@ -411,6 +412,7 @@ struct fujitsu
   SANE_Range blue_offset_range;
   SANE_Range swdespeck_range;
   SANE_Range swskip_range;
+  SANE_Range buffer_size_range;
 
   /*endorser group*/
   SANE_Range endorser_bits_range;
