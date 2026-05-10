@@ -8197,6 +8197,120 @@ sane_read (SANE_Handle handle, SANE_Byte * buf, SANE_Int max_len, SANE_Int * len
   return ret;
 }
 
+/*
+ * sane_read_dup is a SANE extension. For a duplex source it returns whatever
+ * data is currently available for both sides in a single call, so a frontend
+ * can update front and back previews progressively in lockstep without the
+ * lowmemory + side-option dance.
+ *
+ *   front_buf/back_buf : caller-owned output buffers (either may be NULL if
+ *                        the caller has stopped consuming that side).
+ *   max_len            : capacity of each output buffer (same for both).
+ *   front_len/back_len : *out* bytes copied to each buffer.
+ *
+ * Returns:
+ *   SANE_STATUS_GOOD   while either side may still produce data.
+ *   SANE_STATUS_EOF    once both sides have been fully drained.
+ *   SANE_STATUS_INVAL  if the current source is not duplex.
+ */
+SANE_Status
+sane_read_dup (SANE_Handle handle,
+               SANE_Byte *front_buf, SANE_Byte *back_buf,
+               SANE_Int max_len,
+               SANE_Int *front_len, SANE_Int *back_len)
+{
+  struct fujitsu *s = (struct fujitsu *) handle;
+  SANE_Status ret = SANE_STATUS_GOOD;
+
+  DBG (10, "sane_read_dup: start\n");
+
+  if (front_len) *front_len = 0;
+  if (back_len)  *back_len  = 0;
+
+  if (!s->started) {
+    DBG (5, "sane_read_dup: not started\n");
+    return SANE_STATUS_CANCELLED;
+  }
+  if (s->source != SOURCE_ADF_DUPLEX && s->source != SOURCE_CARD_DUPLEX) {
+    DBG (5, "sane_read_dup: not duplex source\n");
+    return SANE_STATUS_INVAL;
+  }
+  /* JPEG/3091 interlace modes use scanner-internal multiplexing that
+   * doesn't fit a per-side decomposition; fall back to the legacy
+   * sane_read path in that case. */
+  if (s->s_params.format == SANE_FRAME_JPEG
+      || s->duplex_interlace == DUPLEX_INTERLACE_3091) {
+    DBG (5, "sane_read_dup: unsupported interlace, use sane_read\n");
+    return SANE_STATUS_UNSUPPORTED;
+  }
+
+  /* both sides fully consumed by the frontend? signal EOF. */
+  if (s->eof_rx[SIDE_FRONT] && s->eof_rx[SIDE_BACK]
+      && s->bytes_tx[SIDE_FRONT] == s->bytes_rx[SIDE_FRONT]
+      && s->bytes_tx[SIDE_BACK]  == s->bytes_rx[SIDE_BACK]) {
+    s->eof_tx[SIDE_FRONT] = 1;
+    s->eof_tx[SIDE_BACK]  = 1;
+    DBG (15, "sane_read_dup: returning eof\n");
+    return SANE_STATUS_EOF;
+  }
+
+  s->reading = 1;
+
+  /* top up each side's buffer from the scanner. read_from_scanner is a
+   * no-op once that side has eof'd, so calling unconditionally is safe. */
+  if (!s->eof_rx[SIDE_FRONT]) {
+    ret = read_from_scanner (s, SIDE_FRONT);
+    if (ret) {
+      DBG (5, "sane_read_dup: front returning %d\n", ret);
+      s->reading = 0;
+      return ret;
+    }
+  }
+  /* don't let back run too far ahead of front; mirrors sane_read's pacing */
+  if (!s->eof_rx[SIDE_BACK]
+      && s->bytes_rx[SIDE_BACK] < s->bytes_rx[SIDE_FRONT] + s->buffer_size) {
+    ret = read_from_scanner (s, SIDE_BACK);
+    if (ret) {
+      DBG (5, "sane_read_dup: back returning %d\n", ret);
+      s->reading = 0;
+      return ret;
+    }
+  }
+
+  /* drain whatever is now in each side's buffer to the caller. */
+  if (front_buf && front_len) {
+    if (must_downsample (s))
+      ret = downsample_from_buffer (s, front_buf, max_len, front_len,
+                                    SIDE_FRONT);
+    else
+      ret = read_from_buffer (s, front_buf, max_len, front_len, SIDE_FRONT);
+    if (s->buff_tx[SIDE_FRONT] == s->buff_rx[SIDE_FRONT]
+        && s->buff_tot[SIDE_FRONT] < s->bytes_tot[SIDE_FRONT]) {
+      s->buff_rx[SIDE_FRONT] = 0;
+      s->buff_tx[SIDE_FRONT] = 0;
+    }
+  }
+  if (back_buf && back_len) {
+    if (must_downsample (s))
+      ret = downsample_from_buffer (s, back_buf, max_len, back_len,
+                                    SIDE_BACK);
+    else
+      ret = read_from_buffer (s, back_buf, max_len, back_len, SIDE_BACK);
+    if (s->buff_tx[SIDE_BACK] == s->buff_rx[SIDE_BACK]
+        && s->buff_tot[SIDE_BACK] < s->bytes_tot[SIDE_BACK]) {
+      s->buff_rx[SIDE_BACK] = 0;
+      s->buff_tx[SIDE_BACK] = 0;
+    }
+  }
+
+  ret = check_for_cancel (s);
+  s->reading = 0;
+
+  DBG (10, "sane_read_dup: finish %d (front=%d back=%d)\n", ret,
+       front_len ? *front_len : -1, back_len ? *back_len : -1);
+  return ret;
+}
+
 /* bare jpeg images don't contain resolution, but JFIF APP0 does, so we add */
 static SANE_Status
 inject_jfif_header(struct fujitsu *s, int side)
