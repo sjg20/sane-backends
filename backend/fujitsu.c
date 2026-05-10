@@ -4155,6 +4155,24 @@ sane_get_option_descriptor (SANE_Handle handle, SANE_Int option)
      opt->cap = SANE_CAP_INACTIVE;
   }
 
+  /* per-handle SCSI/USB read chunk size used by sane_read; smaller
+   * values give smoother progressive delivery during the scan. Takes
+   * effect on the next sane_start. */
+  if(option==OPT_BUFFER_SIZE){
+    opt->name = "buffer-size";
+    opt->title = SANE_I18N ("Buffer size");
+    opt->desc = SANE_I18N ("Bytes per SCSI/USB read. Smaller values yield more frequent sane_read returns and smoother progressive preview, at a small throughput cost. Takes effect on the next sane_start.");
+    opt->type = SANE_TYPE_INT;
+    opt->unit = SANE_UNIT_NONE;
+    opt->size = sizeof(SANE_Word);
+    opt->cap = SANE_CAP_SOFT_SELECT | SANE_CAP_SOFT_DETECT | SANE_CAP_ADVANCED;
+    opt->constraint_type = SANE_CONSTRAINT_RANGE;
+    opt->constraint.range = &s->buffer_size_range;
+    s->buffer_size_range.min = 4096;
+    s->buffer_size_range.max = 1024 * 1024;
+    s->buffer_size_range.quant = 4096;
+  }
+
   /* "Endorser" group ------------------------------------------------------ */
   if(option==OPT_ENDORSER_GROUP){
     opt->name = "endorser-options";
@@ -5139,6 +5157,10 @@ sane_control_option (SANE_Handle handle, SANE_Int option,
           *val_p = s->halt_on_cancel;
           return SANE_STATUS_GOOD;
 
+        case OPT_BUFFER_SIZE:
+          *val_p = s->buffer_size;
+          return SANE_STATUS_GOOD;
+
         /* Endorser Group */
         case OPT_ENDORSER:
           *val_p = s->u_endorser;
@@ -5797,6 +5819,17 @@ sane_control_option (SANE_Handle handle, SANE_Int option,
 
         case OPT_HALT_ON_CANCEL:
           s->halt_on_cancel = val_c;
+          return SANE_STATUS_GOOD;
+
+        case OPT_BUFFER_SIZE:
+          /* refuse mid-scan changes; buffers are sized in sane_start */
+          if(s->started)
+            return SANE_STATUS_INVAL;
+          if(val_c < 4096)
+            val_c = 4096;
+          /* round down to a multiple of 4096 to match the range quantum */
+          val_c &= ~4095;
+          s->buffer_size = val_c;
           return SANE_STATUS_GOOD;
 
         /* Endorser Group */
