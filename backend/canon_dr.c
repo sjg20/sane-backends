@@ -1667,6 +1667,7 @@ init_model (struct scanner *s)
     s->color_interlace[SIDE_BACK] = COLOR_INTERLACE_RRGGBB;
     s->gray_interlace[SIDE_FRONT] = GRAY_INTERLACE_gG;
     s->duplex_interlace = DUPLEX_INTERLACE_FBfb;
+    s->duplex_offset_side = SIDE_BACK;
     s->need_ccal = 1;
     s->invert_tly = 1;
     s->unknown_byte2 = 0x88;
