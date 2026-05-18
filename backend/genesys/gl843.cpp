@@ -927,46 +927,46 @@ static void gl843_init_optical_regs_scan(Genesys_Device* dev, const Genesys_Sens
     reg->set8(REG_0x2F, 0x7f);
 
   /* monochrome / color scan */
-    switch (session.params.depth) {
+  reg->find_reg(REG_0x04).value &= ~(REG_0x04_LINEART | REG_0x04_BITSET);
+  switch (session.params.depth) {
+    case 1:
+      reg->find_reg(REG_0x04).value |= REG_0x04_LINEART;
+      break;
     case 8:
-            reg->find_reg(REG_0x04).value &= ~(REG_0x04_LINEART | REG_0x04_BITSET);
       break;
     case 16:
-            reg->find_reg(REG_0x04).value &= ~REG_0x04_LINEART;
-            reg->find_reg(REG_0x04).value |= REG_0x04_BITSET;
+      reg->find_reg(REG_0x04).value |= REG_0x04_BITSET;
       break;
-    }
+  }
 
-    reg->find_reg(REG_0x04).value &= ~(REG_0x04_FILTER | REG_0x04_AFEMOD);
-  if (session.params.channels == 1)
-    {
-      switch (session.params.color_filter)
-	{
-            case ColorFilter::RED:
-                reg->find_reg(REG_0x04).value |= 0x14;
-                break;
-            case ColorFilter::BLUE:
-                reg->find_reg(REG_0x04).value |= 0x1c;
-                break;
-            case ColorFilter::GREEN:
-                reg->find_reg(REG_0x04).value |= 0x18;
-                break;
-            default:
-                break; // should not happen
-	}
-    } else {
-        switch (dev->frontend.layout.type) {
-            case FrontendType::WOLFSON:
-                reg->find_reg(REG_0x04).value |= 0x10; // pixel by pixel
-                break;
-            case FrontendType::ANALOG_DEVICES:
-                reg->find_reg(REG_0x04).value |= 0x20; // slow color pixel by pixel
-                break;
-            default:
-                throw SaneException("Invalid frontend type %d",
-                                    static_cast<unsigned>(dev->frontend.layout.type));
-        }
-    }
+  reg->find_reg(REG_0x04).value &= ~(REG_0x04_FILTER | REG_0x04_AFEMOD);
+  if (session.params.channels == 1) {
+    switch (session.params.color_filter) {
+      case ColorFilter::RED:
+        reg->find_reg(REG_0x04).value |= REG_0x04_FILTER_R;
+        break;
+        case ColorFilter::GREEN:
+        reg->find_reg(REG_0x04).value |= REG_0x04_FILTER_G;
+        break;
+      case ColorFilter::BLUE:
+        reg->find_reg(REG_0x04).value |= REG_0x04_FILTER_B;
+        break;
+      default:
+        break; // should not happen
+	  }
+  }
+
+  switch (dev->frontend.layout.type) {
+    case FrontendType::WOLFSON:
+      reg->find_reg(REG_0x04).value |= REG_0x04_AFEMOD_PXP; // pixel by pixel
+      break;
+    case FrontendType::ANALOG_DEVICES:
+      reg->find_reg(REG_0x04).value |= REG_0x04_AFEMOD_SLOW_PXP; // slow color pixel by pixel
+      break;
+    default:
+      throw SaneException("Invalid frontend type %d",
+                          static_cast<unsigned>(dev->frontend.layout.type));
+  }
 
     const auto& dpihw_sensor = sanei_genesys_find_sensor(dev, session.output_resolution,
                                                          session.params.channels,
