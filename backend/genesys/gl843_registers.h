@@ -58,11 +58,21 @@ static constexpr RegMask REG_0x03_LAMPPWR = 0x10;
 static constexpr RegMask REG_0x03_LAMPTIM = 0x0f;
 
 static constexpr RegAddr REG_0x04 = 0x04;
-static constexpr RegMask REG_0x04_LINEART = 0x80;
-static constexpr RegMask REG_0x04_BITSET = 0x40;
-static constexpr RegMask REG_0x04_AFEMOD = 0x30;
-static constexpr RegMask REG_0x04_FILTER = 0x0c;
-static constexpr RegMask REG_0x04_FESET = 0x03;
+static constexpr RegMask REG_0x04_LINEART         = 1<<7;
+static constexpr RegMask REG_0x04_BITSET          = 1<<6;
+
+static constexpr RegMask REG_0x04_AFEMOD          = 1<<5 | 1<<4;
+static constexpr RegMask REG_0x04_AFEMOD_SLOW_PXP = 1<<5;
+static constexpr RegMask REG_0x04_AFEMOD_PXP      = 1<<4;
+static constexpr RegMask REG_0x04_AFEMOD_MONO     = 0;
+
+static constexpr RegMask REG_0x04_FILTER          = 1<<3 | 1<<2;
+static constexpr RegMask REG_0x04_FILTER_RGB      = 0;
+static constexpr RegMask REG_0x04_FILTER_R        = 1<<2;
+static constexpr RegMask REG_0x04_FILTER_G        = 1<<3;
+static constexpr RegMask REG_0x04_FILTER_B        = 1<<3 | 1<<2;
+
+static constexpr RegMask REG_0x04_FESET           = 1<<1 | 1<<0;
 
 static constexpr RegShift REG_0x04S_AFEMOD = 4;
 

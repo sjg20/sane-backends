@@ -2523,8 +2523,28 @@ void genesys_init_usb_device_tables()
     // same as 7300, same USB ID as 7400-v2
     model.name = "plustek-opticfilm-7400-v1";
     model.model = "OpticFilm 7400 (v1)";
-    s_usb_devices->emplace_back(0x07b3, 0x0c3a, 0x0400, model);
+    model.flags = ModelFlag::WARMUP |
+                 ModelFlag::DISABLE_SHADING_CALIBRATION;
+    model.sensor_id = SensorId::CCD_PLUSTEK_OPTICFILM_7400_V1;
+    model.bpp_gray_values = {8, 16};
+    model.bpp_color_values = {8, 16};
+    model.resolutions = {
+        {
+            {ScanMethod::TRANSPARENCY},
+            {7200, 3600, 2400, 1200, 900, 600},
+            {7200, 3600, 2400, 1200, 900, 600},
+        }};
 
+    model.x_offset_ta = 0.0;
+    model.y_offset_ta = 29.0;
+    model.x_size_ta = 39.0;
+    model.y_size_ta = 25.5;
+
+    model.y_offset_calib_white_ta = 0.0;
+    model.y_offset_calib_black_ta = 7;
+    model.y_size_calib_ta_mm = 2.0;
+
+    s_usb_devices->emplace_back(0x07b3, 0x0c3a, 0x0400, model);
 
     model = Genesys_Model();
     model.name = "plustek-opticfilm-7400-v2";
@@ -2577,7 +2597,7 @@ void genesys_init_usb_device_tables()
     model.is_cis = false;
     model.is_sheetfed = false;
 
-    model.sensor_id = SensorId::CCD_PLUSTEK_OPTICFILM_7400;
+    model.sensor_id = SensorId::CCD_PLUSTEK_OPTICFILM_7400_V2;
     model.adc_id = AdcId::PLUSTEK_OPTICFILM_7400;
     model.gpio_id = GpioId::PLUSTEK_OPTICFILM_7400;
     model.motor_id = MotorId::PLUSTEK_OPTICFILM_7400;

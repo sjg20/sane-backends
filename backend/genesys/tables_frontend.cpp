@@ -498,14 +498,14 @@ void genesys_init_frontend_tables()
     fe.id = AdcId::PLUSTEK_OPTICFILM_7300;
     fe.layout = analog_devices;
     fe.regs = {
-        { 0x00, 0xf8 },
-        { 0x01, 0x80 },
-        { 0x02, 0x10 },
-        { 0x03, 0x06 },
-        { 0x04, 0x06 },
-        { 0x05, 0x09 },
-        { 0x06, 0x0a },
-        { 0x07, 0x0102 },
+        { 0x00, 0xf8 },   // set INPUT_RNG=4V, VREF=internal, 3CH=on, CDS mode, and CLAMP=4V
+        { 0x01, 0x80 },   // set mux order to RGB; red/green/blue are ignored when 3CH=on
+        { 0x02, 0x10 },   // set red gain
+        { 0x03, 0x06 },   // set green gain
+        { 0x04, 0x06 },   // set blue gain
+        { 0x05, 0x09 },   // set +10.8mV red offset
+        { 0x06, 0x0a },   // set +12.0mV green offset
+        { 0x07, 0x0102 }, // set -2.4mV blue offset
     };
     fe.reg2 = {0x00, 0x00, 0x00};
     s_frontends->push_back(fe);
@@ -515,14 +515,14 @@ void genesys_init_frontend_tables()
     fe.id = AdcId::PLUSTEK_OPTICFILM_7400;
     fe.layout = analog_devices;
     fe.regs = {
-        { 0x00, 0xf8 },
-        { 0x01, 0x80 },
-        { 0x02, 0x1f },
-        { 0x03, 0x14 },
-        { 0x04, 0x19 },
-        { 0x05, 0x1b },
-        { 0x06, 0x1e },
-        { 0x07, 0x0e },
+        { 0x00, 0xf8 }, // set INPUT_RNG=4V, VREF=internal, 3CH=on, CDS mode, and CLAMP=4V
+        { 0x01, 0x80 }, // set mux order to RGB; red/green/blue are ignored when 3CH=on
+        { 0x02, 0x1f }, // set red gain
+        { 0x03, 0x14 }, // set green gain
+        { 0x04, 0x19 }, // set blue gain
+        { 0x05, 0x1b }, // set red offset
+        { 0x06, 0x1e }, // set green offset
+        { 0x07, 0x0e }, // set blue offset
     };
     fe.reg2 = {0x00, 0x00, 0x00};
     s_frontends->push_back(fe);

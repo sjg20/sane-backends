@@ -171,7 +171,8 @@ std::ostream& operator<<(std::ostream& out, SensorId id)
         case SensorId::CCD_PLUSTEK_OPTICFILM_7200: out << "CCD_PLUSTEK_OPTICFILM_7200"; break;
         case SensorId::CCD_PLUSTEK_OPTICFILM_7200I: out << "CCD_PLUSTEK_OPTICFILM_7200I"; break;
         case SensorId::CCD_PLUSTEK_OPTICFILM_7300: out << "CCD_PLUSTEK_OPTICFILM_7300"; break;
-        case SensorId::CCD_PLUSTEK_OPTICFILM_7400: out << "CCD_PLUSTEK_OPTICFILM_7400"; break;
+        case SensorId::CCD_PLUSTEK_OPTICFILM_7400_V1: out << "CCD_PLUSTEK_OPTICFILM_7400_V1"; break;
+        case SensorId::CCD_PLUSTEK_OPTICFILM_7400_V2: out << "CCD_PLUSTEK_OPTICFILM_7400_V2"; break;
         case SensorId::CCD_PLUSTEK_OPTICFILM_7500I: out << "CCD_PLUSTEK_OPTICFILM_7500I"; break;
         case SensorId::CCD_PLUSTEK_OPTICFILM_8200I: out << "CCD_PLUSTEK_OPTICFILM_8200I"; break;
         case SensorId::CCD_PLUSTEK_OPTICPRO_3600: out << "CCD_PLUSTEK_OPTICPRO_3600"; break;

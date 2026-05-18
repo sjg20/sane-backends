@@ -3426,9 +3426,43 @@ void genesys_init_sensor_tables()
         }
     }
 
+    // the 7400 v1 is mostly an opticfilm 7300, but with different DPI support
+    // and a sensor more like the opticfilm 7400 v2.
+    sensor.sensor_id = SensorId::CCD_PLUSTEK_OPTICFILM_7400_V1;
+    sensor.exposure = SensorExposure(0xabe0, 0x80e8, 0x2af8);
+    sensor.exposure_lperiod = 0x8000;
+
+    {
+        struct CustomSensorSettings
+        {
+            ValueFilterAny<unsigned> resolutions;
+            unsigned shading_resolution;
+            int output_pixel_offset;
+            unsigned register_dpiset;
+            StaggerConfig stagger_y;
+        };
+
+        CustomSensorSettings custom_settings[] = {
+            { { 600 }, 600, 2, 100, StaggerConfig{} },
+            { { 900 }, 900, 0, 150, StaggerConfig{} },
+            { { 1200 }, 1200, 0, 200, StaggerConfig{} },
+            { { 2400 }, 2400, 10, 400, StaggerConfig{1, 0} },
+            { { 3600 }, 3600, 20, 600, StaggerConfig{} },
+            { { 7200 }, 7200, 20, 1200, StaggerConfig{4, 0} },
+        };
+
+        for (const CustomSensorSettings& setting : custom_settings) {
+            sensor.resolutions = setting.resolutions;
+            sensor.shading_resolution = setting.shading_resolution;
+            sensor.output_pixel_offset = setting.output_pixel_offset;
+            sensor.register_dpiset = setting.register_dpiset;
+            sensor.stagger_y = setting.stagger_y;
+            s_sensors->push_back(sensor);
+        }
+    }
 
     sensor = Genesys_Sensor();
-    sensor.sensor_id = SensorId::CCD_PLUSTEK_OPTICFILM_7400; // gl845
+    sensor.sensor_id = SensorId::CCD_PLUSTEK_OPTICFILM_7400_V2; // gl845
     sensor.full_resolution = 7200;
     sensor.method = ScanMethod::TRANSPARENCY;
     sensor.register_dpihw = 1200;
