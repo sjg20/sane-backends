@@ -378,3 +378,38 @@
 :interface  "USB"
 :usbid      "0x04b8" "0x0198"
 :status     :complete
+
+:model      "DS-530X"
+:interface  "USB"
+:usbid      "0x04b8" "0x01a0"
+:status     :complete
+
+:model      "DS-530III"
+:interface  "USB"
+:usbid      "0x04b8" "0x01a1"
+:status     :complete
+
+:model      "ES-550W"
+:interface  "USB"
+:usbid      "0x04b8" "0x01a2"
+:status     :complete
+
+:model      "DS-785W"
+:interface  "USB"
+:usbid      "0x04b8" "0x01a3"
+:status     :complete
+
+:model      "ES-590W"
+:interface  "USB"
+:usbid      "0x04b8" "0x01a4"
+:status     :complete
+
+:model      "RR-620W"
+:interface  "USB"
+:usbid      "0x04b8" "0x01a5"
+:status     :complete
+
+:model      "DS-787W"
+:interface  "USB"
+:usbid      "0x04b8" "0x01a6"
+:status     :complete
