@@ -5338,6 +5338,7 @@ update_i_params(struct scanner *s)
     DBG (10, "update_i_params: start\n");
 
     s->i.width = s->u.width;
+    s->i.height = s->u.height;
     s->i.Bpl = s->u.Bpl;
 
     DBG (10, "update_i_params: finish\n");
