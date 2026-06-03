@@ -164,12 +164,15 @@ usb_low_exit (ma1017 * chip)
   if (chip)
     {
       if (chip->fd >= 0 && chip->is_opened)
-	usb_low_close (chip);
+	      usb_low_close (chip);
+
+      DBG (5, "usb_low_exit: read %d URBs, wrote %d URBs\n",
+       chip->total_read_urbs, chip->total_write_urbs);
+       
       DBG (7, "usb_low_exit: freeing chip\n");
       free (chip);
     }
-  DBG (5, "usb_low_exit: read %d URBs, wrote %d URBs\n",
-       chip->total_read_urbs, chip->total_write_urbs);
+
   DBG (7, "usb_low_exit: exit\n");
   return SANE_STATUS_GOOD;
 }
