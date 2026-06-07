@@ -26,8 +26,8 @@
 :model "ESP 3200"
 :interface "USB"
 :usbid "0x040a" "0x4043"
-:status :untested
-:comment "Please test!"
+:status :good
+:comment "Flatbed scanning works over USB"
 
 :model "ESP 3300"
 :interface "USB"
