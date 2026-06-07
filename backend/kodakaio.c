@@ -893,6 +893,13 @@ In NET mode the timeout is in kodakaio_net_read
 		/* Loop until we have data */
 		while (n == 0) {
 			n = buf_size;
+			/* Round large bulk-in requests down to a multiple of the
+			 * 512-byte USB max packet size. The ESP 3200 (and other AiO
+			 * models) stream full 512-byte packets; a non-aligned request
+			 * length makes the host controller flag -EOVERFLOW (babble)
+			 * and discard the whole otherwise-valid transfer. */
+			if (n > 512)
+				n -= (n % 512);
 /* but what if the data is an exact number of blocks? */
 			DBG(min(16,DBG_READ), "[%ld]  %s: usb req size = %ld  ", (long) time_start,  __func__, (long) n);
 			*status = sanei_usb_read_bulk(s->fd, (SANE_Byte *) buf, (size_t *) & n);
