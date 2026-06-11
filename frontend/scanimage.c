@@ -1438,7 +1438,7 @@ scan_it (FILE *ofp, void* pw)
 
       if (first_frame)
 	{
-          image.num_channels = 1;
+	  image.num_channels = 1;
 	  switch (parm.format)
 	    {
 	    case SANE_FRAME_RED:
@@ -1461,6 +1461,11 @@ scan_it (FILE *ofp, void* pw)
 		  offset = 0;
 		}
 	      else
+		{
+		  SANE_Int image_type =
+		      (parm.format == SANE_FRAME_GRAY)?
+			  (parm.depth == 1? SANE_PDF_IMAGE_MONO: SANE_PDF_IMAGE_GRAY): SANE_PDF_IMAGE_COLOR;
+
 		  switch(output_format)
 		  {
 		  case OUTPUT_TIFF:
@@ -1482,13 +1487,15 @@ scan_it (FILE *ofp, void* pw)
 #endif
 #ifdef HAVE_LIBJPEG
 		  case OUTPUT_PDF:
-		    sane_pdf_start_page ( pw, parm.pixels_per_line, parm.lines,
-		               resolution_value, SANE_PDF_IMAGE_COLOR,
-		               SANE_PDF_ROTATE_OFF);
-		    write_jpeg_header (parm.format, parm.pixels_per_line,
-				       parm.lines, resolution_value,
-				       ofp, &cinfo, &jerr);
-		    break;
+		    {
+		      sane_pdf_start_page(pw, parm.pixels_per_line, parm.lines, resolution_value,
+					  image_type, SANE_PDF_ROTATE_OFF);
+
+		      write_jpeg_header (parm.format, parm.pixels_per_line,
+					 parm.lines, resolution_value,
+					 ofp, &cinfo, &jerr);
+		      break;
+		    }
 		  case OUTPUT_JPEG:
 		    write_jpeg_header (parm.format, parm.pixels_per_line,
 				       parm.lines, resolution_value,
@@ -1496,6 +1503,7 @@ scan_it (FILE *ofp, void* pw)
 		    break;
 #endif
 		  }
+		}
 	      break;
 
             default:

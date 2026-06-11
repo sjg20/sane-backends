@@ -500,7 +500,7 @@ SANE_Int sane_pdf_start_page(
 	SANE_Int			len, len_c;
 	SANE_Byte		*ProcSetImage[SANE_PDF_IMAGE_NUM]		= { (SANE_Byte *)"ImageC", (SANE_Byte *)"ImageG", (SANE_Byte *)"ImageG" };
 	SANE_Byte		*ColorSpace[SANE_PDF_IMAGE_NUM]			= { (SANE_Byte *)"DeviceRGB", (SANE_Byte *)"DeviceGray", (SANE_Byte *)"DeviceGray" };
-	SANE_Int		BitsPerComponent[SANE_PDF_IMAGE_NUM]	= { 8, 8, 1 };
+	SANE_Int		BitsPerComponent[SANE_PDF_IMAGE_NUM]	= { 8, 8, 8 };
 	SANE_pdf_work		*pwork = (SANE_pdf_work *)pw;
 
 	if ( pwork == NULL || w <= 0 || h <= 0 || res <= 0 ||
