@@ -1462,10 +1462,6 @@ scan_it (FILE *ofp, void* pw)
 		}
 	      else
 		{
-		  SANE_Int image_type =
-		      (parm.format == SANE_FRAME_GRAY)?
-			  (parm.depth == 1? SANE_PDF_IMAGE_MONO: SANE_PDF_IMAGE_GRAY): SANE_PDF_IMAGE_COLOR;
-
 		  switch(output_format)
 		  {
 		  case OUTPUT_TIFF:
@@ -1488,6 +1484,10 @@ scan_it (FILE *ofp, void* pw)
 #ifdef HAVE_LIBJPEG
 		  case OUTPUT_PDF:
 		    {
+		      SANE_Int image_type =
+			  (parm.format == SANE_FRAME_GRAY)?
+			      (parm.depth == 1? SANE_PDF_IMAGE_MONO: SANE_PDF_IMAGE_GRAY): SANE_PDF_IMAGE_COLOR;
+
 		      sane_pdf_start_page(pw, parm.pixels_per_line, parm.lines, resolution_value,
 					  image_type, SANE_PDF_ROTATE_OFF);
 
