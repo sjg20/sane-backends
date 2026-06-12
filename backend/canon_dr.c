@@ -3,7 +3,7 @@
    This file is part of the SANE package, and implements a SANE backend
    for various Canon DR-series scanners.
 
-   Copyright (C) 2008-2022 m. allan noah
+   Copyright (C) 2008-2026 m. allan noah
 
    Yabarana Corp. www.yabarana.com provided significant funding
    EvriChart, Inc. www.evrichart.com provided funding and loaned equipment
@@ -362,6 +362,8 @@
       v65 2023-06-06, MAN
          - fix imprinter support (#672)
          - update attach_one and other init functions
+      v66 2026-06-11, MAN
+         - Remove incorrect color interlace settings for DR-M140 (#845, #465, #746)
 
    SANE FLOW DIAGRAM
 
@@ -414,7 +416,7 @@
 #include "canon_dr.h"
 
 #define DEBUG 1
-#define BUILD 65
+#define BUILD 66
 
 /* values for SANE_DEBUG_CANON_DR env var:
  - errors           5
@@ -1738,10 +1740,12 @@ init_model (struct scanner *s)
     s->rgb_format = 1;
     s->has_df_ultra = 1;
 
-    s->color_inter_by_res[DPI_100] = COLOR_INTERLACE_GBR;
-    s->color_inter_by_res[DPI_150] = COLOR_INTERLACE_GBR;
-    s->color_inter_by_res[DPI_200] = COLOR_INTERLACE_BRG;
-    s->color_inter_by_res[DPI_400] = COLOR_INTERLACE_GBR;
+    /* unclear if the following are required, or were an
+     * accidental copy from M160, so disabling for now */
+    //s->color_inter_by_res[DPI_100] = COLOR_INTERLACE_GBR;
+    //s->color_inter_by_res[DPI_150] = COLOR_INTERLACE_GBR;
+    //s->color_inter_by_res[DPI_200] = COLOR_INTERLACE_BRG;
+    //s->color_inter_by_res[DPI_400] = COLOR_INTERLACE_GBR;
 
     /*weirdness*/
     s->always_op = 0;
