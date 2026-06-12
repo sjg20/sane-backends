@@ -829,4 +829,3 @@
 :status :unsupported
 :usbid "0x04c5" "0x128e"
 :comment "Also has a second USB VID 0x13ba. Will require some gymnastics to support."
-
