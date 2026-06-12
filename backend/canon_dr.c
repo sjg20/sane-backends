@@ -1522,9 +1522,9 @@ init_model (struct scanner *s)
   else if (strstr (s->model_name,"R40")
   ){
 	/* confirmed */
-    s->gray_interlace[SIDE_FRONT] = GRAY_INTERLACE_C120;
+    s->gray_interlace[SIDE_FRONT] = GRAY_INTERLACE_C120_LR;
     s->gray_interlace[SIDE_BACK] = GRAY_INTERLACE_C120;
-    s->color_interlace[SIDE_FRONT] = COLOR_INTERLACE_C120;
+    s->color_interlace[SIDE_FRONT] = COLOR_INTERLACE_C120_LR;
     s->color_interlace[SIDE_BACK] = COLOR_INTERLACE_C120;
     s->duplex_interlace = DUPLEX_INTERLACE_2510;
     /*s->duplex_offset = 320; now set in config file*/
@@ -6480,6 +6480,23 @@ copy_simplex(struct scanner *s, unsigned char * buf, int len, int side)
             line[line_next++] = buf[i+j];
           }
           break;
+
+        case GRAY_INTERLACE_C120_LR:
+          DBG (17, "copy_simplex: gray, C120_LR\n");
+
+          /* third read head (second byte of every three) */
+          for(j=1;j<bwidth;j+=3){
+            line[line_next++] = buf[i+j];
+          }
+          /* second read head (first byte of every three) */
+          for(j=0;j<bwidth;j+=3){
+            line[line_next++] = buf[i+j];
+          }
+          /* first read head (third byte of every three) */
+          for(j=2;j<bwidth;j+=3){
+            line[line_next++] = buf[i+j];
+          }
+          break;
       }
     }
 
@@ -6582,6 +6599,29 @@ copy_simplex(struct scanner *s, unsigned char * buf, int len, int side)
           }
           /* third read head (second byte of every three) */
           for(j=t-2;j>=0;j-=3){
+            line[line_next++] = buf[i+j];
+            line[line_next++] = buf[i+t+j];
+            line[line_next++] = buf[i+2*t+j];
+          }
+          break;
+
+        case COLOR_INTERLACE_C120_LR:
+          DBG (17, "copy_simplex: color, C120_LR\n");
+
+          /* third read head (second byte of every three) */
+          for(j=1;j<t;j+=3){
+            line[line_next++] = buf[i+j];
+            line[line_next++] = buf[i+t+j];
+            line[line_next++] = buf[i+2*t+j];
+          }
+          /* second read head (first byte of every three) */
+          for(j=0;j<t;j+=3){
+            line[line_next++] = buf[i+j];
+            line[line_next++] = buf[i+t+j];
+            line[line_next++] = buf[i+2*t+j];
+          }
+          /* first read head (third byte of every three) */
+          for(j=2;j<t;j+=3){
             line[line_next++] = buf[i+j];
             line[line_next++] = buf[i+t+j];
             line[line_next++] = buf[i+2*t+j];
