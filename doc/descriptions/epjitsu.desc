@@ -69,3 +69,14 @@
 :status :good
 :usbid "0x04c5" "0x1447"
 :comment "Same as S1100, with different usb id. Needs firmware '1100i_0A00.nal'"
+
+; -- Ricoh purchased Fujitsu scanner division in 2025.
+; -- Subsequent models will be Ricoh branded.
+
+:mfg "Ricoh"                   ; name a manufacturer
+:url "http://www.ricoh.com/"
+
+:model "fi-70F"
+:interface "USB"
+:status :untested
+:usbid "0x05ca" "0x0308"

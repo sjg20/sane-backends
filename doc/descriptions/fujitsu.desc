@@ -683,11 +683,6 @@
 :mfg "Ricoh"                   ; name a manufacturer
 :url "http://www.ricoh.com/"
 
-:model "fi-70F"
-:interface "USB"
-:status :untested
-:usbid "0x05ca" "0x0308"
-
 :model "fi-400F"
 :interface "USB"
 :status :untested
