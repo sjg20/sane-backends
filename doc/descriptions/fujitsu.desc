@@ -819,8 +819,14 @@
 :usbid "0x04c5" "0x1632"
 :comment "WiFi not supported."
 
+:model "ScanSnap iX2400"
+:interface "USB"
+:status :untested
+:usbid "0x05ca" "0x03e3"
+
 :model "ScanSnap SV600"
 :interface "USB"
 :status :unsupported
 :usbid "0x04c5" "0x128e"
 :comment "Also has a second USB VID 0x13ba. Will require some gymnastics to support."
+
