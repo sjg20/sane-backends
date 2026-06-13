@@ -2184,7 +2184,16 @@ change_params(struct scanner *s)
       /* adf with specified paper size */
       s->front.height = SCANNER_UNIT_TO_PIX(s->page_height, s->front.y_res);
     }
-    s->front.width_pix = SCANNER_UNIT_TO_PIX(s->page_width, s->resolution * img_heads);
+
+    if (s->model == MODEL_S300 || s->model == MODEL_S1300i || s->model == MODEL_S1100)
+    {
+      s->front.width_pix = SCANNER_UNIT_TO_PIX(s->page_width, s->resolution * img_heads);
+    }
+    else /* MODEL_FI60F or MODEL_FI65F use a static width */
+    {
+      s->front.width_pix = s->block_img.width_pix;
+    }
+
     s->front.x_start_offset = (s->block_xfr.image->width_pix - s->front.width_pix)/2;
     switch (s->mode) {
       case MODE_COLOR:
