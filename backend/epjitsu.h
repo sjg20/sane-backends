@@ -110,6 +110,7 @@ struct scanner
   int max_res;
 
   float white_factor[3];
+  int fine_gain_target[2]; /* per-model calibration target [front, back] */
   int adf_height_padding;
 
   /* the scan size in 1/1200th inches, NOT basic_units or sane units */
