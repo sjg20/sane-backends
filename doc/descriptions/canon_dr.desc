@@ -418,4 +418,9 @@
 :interface "USB"
 :usbid "0x1083" "0x1679"
 :status :basic
-:comment "Letter-size ADF. Hardware provides: Gray/Color, Simplex/Duplex, Full-width, 300/600dpi horizontal, with front mirrored horizontally. Driver provides: Binary, Despeckle, Deskew, Cropping, Calibration, other resolutions. Multistream unsupported."
+:comment "Letter-size ADF. Hardware provides: Gray/Color, Simplex/Duplex, Full-width, 300/600dpi horizontal. Driver provides: Binary, Despeckle, Deskew, Cropping, Calibration, other resolutions. Multistream unsupported."
+
+:model "DR-M260"
+:interface "USB"
+:usbid "0x1083" "0x166d"
+:status :untested

@@ -364,6 +364,9 @@
          - update attach_one and other init functions
       v66 2026-06-11, MAN
          - Remove incorrect color interlace settings for DR-M140 (#845, #465, #746)
+      v67 2022-06-04, MAN
+         - initial support for DR-M260 (#553)
+         - initial support for DR-3080CII (#567)
 
    SANE FLOW DIAGRAM
 
@@ -416,7 +419,7 @@
 #include "canon_dr.h"
 
 #define DEBUG 1
-#define BUILD 66
+#define BUILD 67
 
 /* values for SANE_DEBUG_CANON_DR env var:
  - errors           5
@@ -1601,6 +1604,13 @@ init_model (struct scanner *s)
     s->can_monochrome=0;
   }
 
+  else if (strstr (s->model_name,"DR-3080CII")){
+    s->can_write_panel = 0;
+    s->has_df = 0;
+    s->has_btc = 0;
+    s->fixed_width = 1;
+  }
+
   else if (strstr (s->model_name,"DR-3080")){
     s->can_write_panel = 0;
     s->has_df = 0;
@@ -1719,6 +1729,46 @@ init_model (struct scanner *s)
     /*lies*/
     s->can_halftone=0;
     s->can_monochrome=0;
+  }
+
+  else if (strstr (s->model_name,"DR-M260")){
+
+    /*missing*/
+    s->std_res_x[DPI_100]=1;
+    s->std_res_y[DPI_100]=1;
+    s->std_res_x[DPI_150]=1;
+    s->std_res_y[DPI_150]=1;
+    s->std_res_x[DPI_200]=1;
+    s->std_res_y[DPI_200]=1;
+    s->std_res_x[DPI_300]=1;
+    s->std_res_y[DPI_300]=1;
+    s->std_res_x[DPI_400]=1;
+    s->std_res_y[DPI_400]=1;
+    s->std_res_x[DPI_600]=1;
+    s->std_res_y[DPI_600]=1;
+
+    s->has_comp_JPEG = 1;
+    s->rgb_format = 1;
+    s->has_df_ultra = 1;
+
+    s->color_inter_by_res[DPI_100] = COLOR_INTERLACE_GBR;
+    s->color_inter_by_res[DPI_150] = COLOR_INTERLACE_GBR;
+    s->color_inter_by_res[DPI_200] = COLOR_INTERLACE_BRG;
+    s->color_inter_by_res[DPI_400] = COLOR_INTERLACE_GBR;
+
+    /*weirdness*/
+    //s->always_op = 0;
+    //s->fixed_width = 1;
+    //s->invert_tly = 1;
+    //s->can_write_panel = 0;
+    s->has_ssm = 0;
+    s->has_ssm2 = 1;
+    s->duplex_interlace = DUPLEX_INTERLACE_FfBb;
+    s->duplex_offset_side = SIDE_FRONT;
+
+    /*lies*/
+    //s->can_halftone=0;
+    //s->can_monochrome=0;
   }
 
   else if (strstr (s->model_name,"DR-M140")){
@@ -9361,7 +9411,7 @@ load_lut (unsigned char * lut,
     lut_p++;
   }
 
-  hexdump(5, "load_lut: ", lut, max_in_val+1);
+  hexdump(25, "load_lut: ", lut, max_in_val+1);
 
   DBG (10, "load_lut: finish\n");
   return ret;
