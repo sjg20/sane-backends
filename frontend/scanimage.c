@@ -2931,6 +2931,7 @@ List of available devices:", prog_name);
                       ofp = NULL;
                     }
                 }
+	      n += batch_increment;
 	      break;
 	    default:
 	      if (batch)
@@ -2960,7 +2961,6 @@ List of available devices:", prog_name);
                 }
 	      break;
 	    }			/* switch */
-	  n += batch_increment;
 	}
       while ((batch
 	      && (batch_count == BATCH_COUNT_UNLIMITED || --batch_count))
