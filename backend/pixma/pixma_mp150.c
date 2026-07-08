@@ -1065,6 +1065,15 @@ handle_interrupt (pixma_t * s, int timeout)
       s->events = PIXMA_EV_BUTTON1 | (buf[0x13] & 0x0f);
     }
   }
+  else if (s->cfg->pid == MG3200_PID)
+  /* MG3200 series: SCAN is the only button reported; flag in buf[4]. */
+  {
+    if (buf[4] & 1)
+    {
+      /* start scan */
+      s->events = PIXMA_EV_BUTTON1;
+    }
+  }
   else
   /* button no. in buf[0]
    * original in buf[0]
