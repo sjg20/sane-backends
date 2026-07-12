@@ -2586,6 +2586,12 @@ cs3_load(cs3_t * s)
 	if (status != SANE_STATUS_GOOD)
 		return status;
 
+	/* the 13-byte parameter block must be zeroed explicitly: the send
+	   buffer is reused across commands (n_cmd is not set until
+	   cs3_issue_cmd), and at least the LS-5000 (firmware 1.03) rejects
+	   the command with ILLEGAL REQUEST if stale bytes remain */
+	memset(s->send_buf + s->n_send - 13, 0, 13);
+
 	return cs3_issue_and_execute(s);
 }
 
@@ -2603,6 +2609,8 @@ cs3_eject(cs3_t * s)
 	if (status != SANE_STATUS_GOOD)
 		return status;
 
+	memset(s->send_buf + s->n_send - 13, 0, 13);
+
 	return cs3_issue_and_execute(s);
 }
 
@@ -2619,6 +2627,8 @@ cs3_reset(cs3_t * s)
 	status = cs3_grow_send_buffer(s);
 	if (status != SANE_STATUS_GOOD)
 		return status;
+
+	memset(s->send_buf + s->n_send - 13, 0, 13);
 
 	return cs3_issue_and_execute(s);
 }
