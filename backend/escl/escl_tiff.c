@@ -58,8 +58,9 @@ get_TIFF_data(capabilities_t *scanner, int *width, int *height, int *bps)
     uint32_t w = 0;
     uint32_t h = 0;
     unsigned char *surface = NULL;         /*  image data*/
-    int components = 4;
-    uint32_t npixels = 0;
+    uint32_t *raster = NULL;
+    int components = 3;
+    size_t npixels = 0;
     SANE_Status status = SANE_STATUS_GOOD;
 
     lseek(fileno(scanner->tmp), 0, SEEK_SET);
@@ -72,22 +73,35 @@ get_TIFF_data(capabilities_t *scanner, int *width, int *height, int *bps)
 
     TIFFGetField(tif, TIFFTAG_IMAGEWIDTH, &w);
     TIFFGetField(tif, TIFFTAG_IMAGELENGTH, &h);
-    npixels = w * h;
-    surface = (unsigned char*) malloc(npixels * sizeof (uint32_t));
-    if (surface == NULL)
+    npixels = (size_t)w * h;
+    raster = (uint32_t *)malloc((size_t)npixels * sizeof(uint32_t));
+    if (raster == NULL)
     {
         DBG( 10, "Escl Tiff : raster Memory allocation problem.\n");
         status = SANE_STATUS_INVAL;
 	goto close_tiff;
     }
 
-    if (!TIFFReadRGBAImage(tif, w, h, (uint32_t *)surface, 0))
+    if (!TIFFReadRGBAImage(tif, w, h, raster, 0))
     {
         DBG( 10, "Escl Tiff : Problem reading image data.\n");
         status = SANE_STATUS_INVAL;
-        free(surface);
+	free(raster);
 	goto close_tiff;
     }
+
+    surface = (unsigned char *)malloc((size_t)npixels * components);
+    if (!surface) {
+        free(raster);
+        status = SANE_STATUS_NO_MEM;
+        goto close_tiff;
+    }
+    for (size_t i = 0; i < npixels; i++) {
+        surface[i * components] = TIFFGetR(raster[i]);
+        surface[i * components + 1] = TIFFGetG(raster[i]);
+        surface[i * components + 2] = TIFFGetB(raster[i]);
+    }
+    free(raster);
 
     *bps = components;
 

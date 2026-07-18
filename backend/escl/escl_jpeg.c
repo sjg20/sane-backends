@@ -161,8 +161,6 @@ get_JPEG_data(capabilities_t *scanner, int *width, int *height, int *bps)
     unsigned char *surface = NULL;
     struct my_error_mgr jerr;
     int lineSize = 0;
-    JDIMENSION x_off = 0;
-    JDIMENSION y_off = 0;
     JDIMENSION w = 0;
     JDIMENSION h = 0;
     int pos = 0;
@@ -192,53 +190,11 @@ get_JPEG_data(capabilities_t *scanner, int *width, int *height, int *bps)
     cinfo.out_color_space = JCS_RGB;
     cinfo.quantize_colors = FALSE;
     jpeg_calc_output_dimensions(&cinfo);
-    double ratio = (double)cinfo.output_width / (double)scanner->caps[scanner->source].width;
-    int rw = (int)((double)scanner->caps[scanner->source].width * ratio);
-    int rh = (int)((double)scanner->caps[scanner->source].height * ratio);
-    int rx = (int)((double)scanner->caps[scanner->source].pos_x * ratio);
-    int ry = (int)((double)scanner->caps[scanner->source].pos_y * ratio);
-
-
-    if (cinfo.output_width < (unsigned int)rw)
-          rw = cinfo.output_width;
-    if (rx < 0)
-          rx = 0;
-
-    if (cinfo.output_height < (unsigned int)rh)
-          rh = cinfo.output_height;
-    if (ry < 0)
-          ry = 0;
-    DBG(10, "1-JPEF Geometry [%dx%d|%dx%d]\n",
-	        rx,
-	        ry,
-	        rw,
-	        rh);
-    x_off = rx;
-    if (x_off > (unsigned int)rw) {
-       w = rw;
-       x_off = 0;
-    }
-    else
-       w = rw - x_off;
-    y_off = ry;
-    if(y_off > (unsigned int)rh) {
-       h = rh;
-       y_off = 0;
-    }
-    else
-       h = rh - y_off;
-    DBG(10, "2-JPEF Geometry [%dx%d|%dx%d]\n",
-	        x_off,
-	        y_off,
-	        w,
-	        h);
+    w = cinfo.output_width;
+    h = cinfo.output_height;
     jpeg_start_decompress(&cinfo);
-    if (x_off > 0 || w < cinfo.output_width)
-       jpeg_crop_scanline(&cinfo, &x_off, &w);
     lineSize = w * cinfo.output_components;
-    if (y_off > 0)
-        jpeg_skip_scanlines(&cinfo, y_off);
-    surface = malloc(cinfo.output_width * cinfo.output_height * cinfo.output_components);
+    surface = malloc((size_t)w * h * cinfo.output_components);
     if (surface == NULL) {
         jpeg_destroy_decompress(&cinfo);
         DBG( 10, "Escl Jpeg : Memory allocation problem\n");
@@ -249,19 +205,20 @@ get_JPEG_data(capabilities_t *scanner, int *width, int *height, int *bps)
         return (SANE_STATUS_NO_MEM);
     }
     pos = 0;
-    while (cinfo.output_scanline < (unsigned int)rh) {
+    while (cinfo.output_scanline < cinfo.output_height) {
         rowptr[0] = (JSAMPROW)surface + (lineSize * pos); // ..cinfo.output_scanline);
         jpeg_read_scanlines(&cinfo, rowptr, (JDIMENSION) 1);
        pos++;
      }
-    scanner->img_data = surface;
-    scanner->img_size = lineSize * h;
-    scanner->img_read = 0;
-    *width = w;
-    *height = h;
     *bps = cinfo.output_components;
-    // jpeg_finish_decompress(&cinfo);
+    jpeg_finish_decompress(&cinfo);
     jpeg_destroy_decompress(&cinfo);
+    surface = escl_crop_surface(scanner, surface, w, h, *bps, width, height);
+    if (!surface) {
+        fclose(scanner->tmp);
+        scanner->tmp = NULL;
+        return (SANE_STATUS_NO_MEM);
+    }
     fclose(scanner->tmp);
     scanner->tmp = NULL;
     return (SANE_STATUS_GOOD);
