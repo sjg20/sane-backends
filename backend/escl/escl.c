@@ -78,6 +78,7 @@ typedef struct Handled {
     SANE_Range contrast_range;
     SANE_Range sharpen_range;
     SANE_Range thresold_range;
+    SANE_Range inactive_range;
     SANE_Bool cancel;
     SANE_Bool write_scan_data;
     SANE_Bool decompress_scan_data;
@@ -1000,6 +1001,9 @@ init_options(SANE_String_Const name_source, escl_sane_t *s)
     s->val[OPT_SCAN_SOURCE].s = strdup (s->scanner->Sources[s->scanner->source]);
 
     /* "Enhancement" group: */
+    s->inactive_range.min = 0;
+    s->inactive_range.max = 255;
+    s->inactive_range.quant = 1;
     s->opt[OPT_ENHANCEMENT_GROUP].title = SANE_I18N ("Enhancement");
     s->opt[OPT_ENHANCEMENT_GROUP].desc = "";    /* not valid for a group */
     s->opt[OPT_ENHANCEMENT_GROUP].type = SANE_TYPE_GROUP;
@@ -1022,8 +1026,7 @@ init_options(SANE_String_Const name_source, escl_sane_t *s)
        s->brightness_range.max=s->scanner->brightness->max;
     }
     else{
-      SANE_Range range = { 0, 255, 0 };
-      s->opt[OPT_BRIGHTNESS].constraint.range = &range;
+      s->opt[OPT_BRIGHTNESS].constraint.range = &s->inactive_range;
       s->val[OPT_BRIGHTNESS].w = 0;
       s->opt[OPT_BRIGHTNESS].cap |= SANE_CAP_INACTIVE;
     }
@@ -1041,8 +1044,7 @@ init_options(SANE_String_Const name_source, escl_sane_t *s)
        s->contrast_range.max=s->scanner->contrast->max;
     }
     else{
-      SANE_Range range = { 0, 255, 0 };
-      s->opt[OPT_CONTRAST].constraint.range = &range;
+      s->opt[OPT_CONTRAST].constraint.range = &s->inactive_range;
       s->val[OPT_CONTRAST].w = 0;
       s->opt[OPT_CONTRAST].cap |= SANE_CAP_INACTIVE;
     }
@@ -1060,8 +1062,7 @@ init_options(SANE_String_Const name_source, escl_sane_t *s)
        s->sharpen_range.max=s->scanner->sharpen->max;
     }
     else{
-      SANE_Range range = { 0, 255, 0 };
-      s->opt[OPT_SHARPEN].constraint.range = &range;
+      s->opt[OPT_SHARPEN].constraint.range = &s->inactive_range;
       s->val[OPT_SHARPEN].w = 0;
       s->opt[OPT_SHARPEN].cap |= SANE_CAP_INACTIVE;
     }
@@ -1080,8 +1081,7 @@ init_options(SANE_String_Const name_source, escl_sane_t *s)
       s->thresold_range.max=s->scanner->threshold->max;
     }
     else{
-      SANE_Range range = { 0, 255, 0 };
-      s->opt[OPT_THRESHOLD].constraint.range = &range;
+      s->opt[OPT_THRESHOLD].constraint.range = &s->inactive_range;
       s->val[OPT_THRESHOLD].w = 0;
       s->opt[OPT_THRESHOLD].cap |= SANE_CAP_INACTIVE;
     }
@@ -1377,11 +1377,14 @@ sane_control_option(SANE_Handle h, SANE_Int n, SANE_Action a, void *v, SANE_Int 
 {
     DBG (10, "escl sane_control_option\n");
     escl_sane_t *handler = h;
+    SANE_Status status;
 
     if (i)
 	*i = 0;
-    if (n >= NUM_OPTIONS || n < 0)
+    if (!handler || !v || n >= NUM_OPTIONS || n < 0)
 	return (SANE_STATUS_INVAL);
+    if (!SANE_OPTION_IS_ACTIVE(handler->opt[n].cap))
+        return (SANE_STATUS_INVAL);
     if (a == SANE_ACTION_GET_VALUE) {
 	switch (n) {
 	case OPT_TL_X:
@@ -1395,6 +1398,7 @@ sane_control_option(SANE_Handle h, SANE_Int n, SANE_Action a, void *v, SANE_Int 
         case OPT_BRIGHTNESS:
         case OPT_CONTRAST:
         case OPT_SHARPEN:
+	case OPT_THRESHOLD:
 	    *(SANE_Word *) v = handler->val[n].w;
 	    break;
 	case OPT_SCAN_SOURCE:
@@ -1408,6 +1412,11 @@ sane_control_option(SANE_Handle h, SANE_Int n, SANE_Action a, void *v, SANE_Int 
 	return (SANE_STATUS_GOOD);
     }
     if (a == SANE_ACTION_SET_VALUE) {
+	if (!SANE_OPTION_IS_SETTABLE(handler->opt[n].cap))
+	    return (SANE_STATUS_INVAL);
+	status = sanei_constrain_value(&handler->opt[n], v, i);
+	if (status != SANE_STATUS_GOOD)
+	    return status;
 	switch (n) {
 	case OPT_TL_X:
 	case OPT_TL_Y:
@@ -1419,15 +1428,16 @@ sane_control_option(SANE_Handle h, SANE_Int n, SANE_Action a, void *v, SANE_Int 
         case OPT_BRIGHTNESS:
         case OPT_CONTRAST:
         case OPT_SHARPEN:
+	case OPT_THRESHOLD:
 	    handler->val[n].w = *(SANE_Word *) v;
 	    if (i)
-		*i |= SANE_INFO_RELOAD_PARAMS | SANE_INFO_RELOAD_OPTIONS | SANE_INFO_INEXACT;
+		*i |= SANE_INFO_RELOAD_PARAMS | SANE_INFO_RELOAD_OPTIONS;
 	    break;
 	case OPT_SCAN_SOURCE:
 	    DBG(10, "SET OPT_SCAN_SOURCE(%s)\n", (SANE_String_Const)v);
 	    init_options_small((SANE_String_Const)v, handler);
 	    if (i)
-		*i |= SANE_INFO_RELOAD_PARAMS | SANE_INFO_RELOAD_OPTIONS | SANE_INFO_INEXACT;
+		*i |= SANE_INFO_RELOAD_PARAMS | SANE_INFO_RELOAD_OPTIONS;
 	    break;
 	case OPT_MODE:
 	    if (handler->val[n].s)
@@ -1455,7 +1465,7 @@ sane_control_option(SANE_Handle h, SANE_Int n, SANE_Action a, void *v, SANE_Int 
             }
             DBG (10, "Color Mode allocation (%s).\n", handler->scanner->caps[handler->scanner->source].default_color);
 	    if (i)
-		*i |= SANE_INFO_RELOAD_PARAMS | SANE_INFO_RELOAD_OPTIONS | SANE_INFO_INEXACT;
+		*i |= SANE_INFO_RELOAD_PARAMS | SANE_INFO_RELOAD_OPTIONS;
             if (handler->scanner->brightness)
                 handler->opt[OPT_BRIGHTNESS].cap |= SANE_CAP_INACTIVE;
             if (handler->scanner->contrast)
@@ -1481,13 +1491,14 @@ sane_control_option(SANE_Handle h, SANE_Int n, SANE_Action a, void *v, SANE_Int 
             handler->val[n].w = _get_resolution(handler, (int)(*(SANE_Word *) v));
 	    handler->scanner->caps[handler->scanner->source].default_resolution = handler->val[n].w;
 	    if (i)
-		*i |= SANE_INFO_RELOAD_PARAMS | SANE_INFO_RELOAD_OPTIONS | SANE_INFO_INEXACT;
+		*i |= SANE_INFO_RELOAD_PARAMS | SANE_INFO_RELOAD_OPTIONS;
 	    break;
 	default:
 	    break;
 	}
+	return (SANE_STATUS_GOOD);
     }
-    return (SANE_STATUS_GOOD);
+    return (SANE_STATUS_UNSUPPORTED);
 }
 
 static SANE_Bool
