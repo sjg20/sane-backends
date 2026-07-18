@@ -292,4 +292,7 @@ SANE_Status get_PDF_data(capabilities_t *scanner,
                          int *height,
                          int *bps);
 
+#define ESCL_CONNECT_TIMEOUT 10L
+#define ESCL_REQUEST_TIMEOUT 300L
+
 #endif
