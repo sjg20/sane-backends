@@ -66,7 +66,6 @@ escl_scan(capabilities_t *scanner, const ESCL_Device *device, char *scanJob, cha
     const char *scanner_start = "/NextDocument";
     char scan_cmd[PATH_MAX] = { 0 };
     SANE_Status status = SANE_STATUS_GOOD;
-    long response_code = 0;
 
     if (device == NULL)
         return SANE_STATUS_NO_MEM;
@@ -91,24 +90,25 @@ escl_scan(capabilities_t *scanner, const ESCL_Device *device, char *scanJob, cha
     curl_easy_setopt(curl_handle, CURLOPT_MAXREDIRS, 3L);
     curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, scanner);
 
-    for (int i = 0; i < MAX_RETRIES && response_code != 200; i++) {
+    for (int i = 0; i < MAX_RETRIES; i++) {
         scanner->real_read = 0;
         CURLcode res = curl_easy_perform(curl_handle);
-        curl_easy_getinfo(curl_handle, CURLINFO_RESPONSE_CODE, &response_code);
-        if (res != CURLE_OK || (response_code != 200 && response_code != 503)) {
-            DBG( 10, "Unable to scan: %s (response code %ld)\n", curl_easy_strerror(res), response_code);
-            status = SANE_STATUS_INVAL;
-            goto cleanup;
-        } else if (response_code == 503) {
-            status = SANE_STATUS_DEVICE_BUSY;
+        status = escl_curl_status(curl_handle, res);
+        if (status == SANE_STATUS_DEVICE_BUSY) {
             sleep(RETRY_TIMEOUT);
-            DBG(10, "Service unavailable: reattempting scan (%d/%d)\n", i + 1, MAX_RETRIES);
+            DBG(10, "Scanner busy: reattempting scan (%d/%d)\n",
+                i + 1, MAX_RETRIES);
+        } else if (status != SANE_STATUS_GOOD) {
+            goto cleanup;
         } else {
             status = scanner->real_read > 0 ? SANE_STATUS_GOOD : SANE_STATUS_NO_DOCS;
         }
 
         if (scanner->real_read)
             fseek(scanner->tmp, 0, SEEK_SET);
+
+        if (status != SANE_STATUS_DEVICE_BUSY)
+            break;
     }
 cleanup:
     curl_easy_cleanup(curl_handle);

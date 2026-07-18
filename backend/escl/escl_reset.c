@@ -47,18 +47,15 @@ void
 escl_delete(const ESCL_Device *device, char *uri)
 {
     CURL *curl_handle = NULL;
-    long answer = 0;
 
     if (uri == NULL)
         return;
     curl_handle = curl_easy_init();
     if (curl_handle != NULL) {
         escl_curl_url(curl_handle, device, uri);
-	curl_easy_setopt(curl_handle, CURLOPT_CUSTOMREQUEST, "DELETE");
-        if (curl_easy_perform(curl_handle) == CURLE_OK) {
-            curl_easy_getinfo(curl_handle, CURLINFO_RESPONSE_CODE, &answer);
-            return;
-        }
+	 curl_easy_setopt(curl_handle, CURLOPT_CUSTOMREQUEST, "DELETE");
+        CURLcode result = curl_easy_perform(curl_handle);
+        (void)escl_curl_status(curl_handle, result);
         curl_easy_cleanup(curl_handle);
     }
 }
@@ -76,7 +73,6 @@ escl_scanner(const ESCL_Device *device, char *scanJob, char *result,  SANE_Bool 
     const char *scanner_start = "/NextDocument";
     char scan_cmd[PATH_MAX] = { 0 };
     int i = 0;
-    long answer = 0;
 
     if (device == NULL || result == NULL)
         return;
@@ -89,12 +85,12 @@ CURL_CALL:
         curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, write_callback);
         curl_easy_setopt(curl_handle, CURLOPT_FOLLOWLOCATION, 1L);
         curl_easy_setopt(curl_handle, CURLOPT_MAXREDIRS, 3L);
-        if (curl_easy_perform(curl_handle) == CURLE_OK) {
-            curl_easy_getinfo(curl_handle, CURLINFO_RESPONSE_CODE, &answer);
+        CURLcode result = curl_easy_perform(curl_handle);
+        if (escl_curl_status(curl_handle, result) == SANE_STATUS_GOOD) {
             i++;
-            if (i >= 15) return;
         }
         curl_easy_cleanup(curl_handle);
+	if (i >= 15) return;
 	char* end = strrchr(scan_cmd, '/');
 	*end = 0;
         escl_delete(device, scan_cmd);

@@ -1896,3 +1896,38 @@ escl_curl_url(CURL *handle, const ESCL_Device *device, SANE_String_Const path)
                          device->unix_socket);
     }
 }
+
+SANE_Status
+escl_curl_status(CURL *handle, CURLcode result)
+{
+    long response = 0;
+
+    if (result != CURLE_OK) {
+        DBG(10, "eSCL transport error: %s\n", curl_easy_strerror(result));
+        return SANE_STATUS_IO_ERROR;
+    }
+    if (curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &response) != CURLE_OK)
+        return SANE_STATUS_IO_ERROR;
+    if (response >= 200 && response < 300)
+        return SANE_STATUS_GOOD;
+
+    DBG(10, "eSCL HTTP status: %ld\n", response);
+    switch (response) {
+    case 401:
+    case 403:
+        return SANE_STATUS_ACCESS_DENIED;
+    case 404:
+    case 409:
+        return SANE_STATUS_NO_DOCS;
+    case 423:
+    case 429:
+    case 503:
+        return SANE_STATUS_DEVICE_BUSY;
+    case 400:
+    case 405:
+    case 415:
+        return SANE_STATUS_UNSUPPORTED;
+    default:
+        return SANE_STATUS_IO_ERROR;
+    }
+}

@@ -224,9 +224,8 @@ reload:
     curl_easy_setopt(curl_handle, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl_handle, CURLOPT_MAXREDIRS, 3L);
     CURLcode res = curl_easy_perform(curl_handle);
-    if (res != CURLE_OK) {
-        DBG( 10, "The scanner didn't respond: %s\n", curl_easy_strerror(res));
-        status = SANE_STATUS_INVAL;
+    status = escl_curl_status(curl_handle, res);
+    if (status != SANE_STATUS_GOOD) {
         goto clean_data;
     }
     DBG( 10, "eSCL : Status : %s.\n", var->memory);
@@ -374,9 +373,8 @@ escl_reset_all_jobs(ESCL_Device *device)
     curl_easy_setopt(curl_handle, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl_handle, CURLOPT_MAXREDIRS, 3L);
     CURLcode res = curl_easy_perform(curl_handle);
-    if (res != CURLE_OK) {
-        DBG( 10, "The scanner didn't respond: %s\n", curl_easy_strerror(res));
-        status = SANE_STATUS_INVAL;
+    status = escl_curl_status(curl_handle, res);
+    if (status != SANE_STATUS_GOOD) {
         goto clean_data1;
     }
     DBG(10, "3 - escl_reset_all_jobs\n");
