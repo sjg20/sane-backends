@@ -623,6 +623,7 @@ if have_libxml2
 libescl_la_SOURCES = escl/escl.c \
 	escl/escl_capabilities.c \
 	escl/escl_devices.c \
+	escl/escl_http.c \
 	escl/escl.h \
 	escl/escl_newjob.c \
 	escl/escl_reset.c \
