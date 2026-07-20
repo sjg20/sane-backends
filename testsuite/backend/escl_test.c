@@ -24,6 +24,13 @@ sanei_debug_escl_call(int level, const char *message, ...)
     (void)message;
 }
 
+SANE_String_Const
+sane_strstatus(SANE_Status status)
+{
+    (void)status;
+    return "";
+}
+
 static void
 expect_status(const char *name, SANE_Status actual, SANE_Status expected)
 {
@@ -42,6 +49,40 @@ test_http_status(void)
     expect_status("HTTP 409", escl_http_status(409), SANE_STATUS_NO_DOCS);
     expect_status("HTTP 503", escl_http_status(503), SANE_STATUS_DEVICE_BUSY);
     expect_status("HTTP 500", escl_http_status(500), SANE_STATUS_IO_ERROR);
+}
+
+static void
+test_scan_file_reset(void)
+{
+    capabilities_t scanner = { 0 };
+    const char busy_body[] = "scanner is busy and returned a long response";
+    const char image[] = "image";
+    char contents[sizeof(busy_body)] = { 0 };
+    size_t bytes_read;
+
+    scanner.tmp = tmpfile();
+    if (!scanner.tmp) {
+        fprintf(stderr, "could not create scan temporary file\n");
+        failures++;
+        return;
+    }
+    fwrite(busy_body, 1, sizeof(busy_body) - 1, scanner.tmp);
+    scanner.real_read = sizeof(busy_body) - 1;
+
+    expect_status("scan file reset", escl_reset_scan_file(&scanner),
+                  SANE_STATUS_GOOD);
+    if (!scanner.tmp)
+        return;
+
+    fwrite(image, 1, sizeof(image) - 1, scanner.tmp);
+    fseek(scanner.tmp, 0, SEEK_SET);
+    bytes_read = fread(contents, 1, sizeof(contents), scanner.tmp);
+    if (bytes_read != sizeof(image) - 1 ||
+        memcmp(contents, image, sizeof(image) - 1) != 0) {
+        fprintf(stderr, "scan file reset retained data from the busy response\n");
+        failures++;
+    }
+    fclose(scanner.tmp);
 }
 
 static void
@@ -104,6 +145,7 @@ int
 main(void)
 {
     test_http_status();
+    test_scan_file_reset();
     test_crop_passthrough();
     test_crop_full_surface_fallback();
     return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
