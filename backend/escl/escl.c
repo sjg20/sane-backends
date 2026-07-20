@@ -1843,6 +1843,12 @@ sane_read(SANE_Handle h, SANE_Byte *buf, SANE_Int maxlen, SANE_Int *len)
 	     next_page = SANE_TRUE;
           handler->scanner->work = SANE_TRUE;
           handler->ps.last_frame = !next_page;
+        } else {
+          /* A platen scan is always a single-frame acquisition.  Keep the
+           * terminal state explicit so a stale ADF state cannot make the
+           * frontend request another page. */
+          handler->scanner->work = SANE_FALSE;
+          handler->ps.last_frame = SANE_TRUE;
         }
         return SANE_STATUS_EOF;
     }
