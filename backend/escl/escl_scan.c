@@ -49,6 +49,24 @@ write_callback(void *str, size_t size, size_t nmemb, void *userp)
     return (to_write);
 }
 
+SANE_Status
+escl_reset_scan_file(capabilities_t *scanner)
+{
+    if (!scanner)
+        return SANE_STATUS_INVAL;
+
+    if (scanner->tmp) {
+        fclose(scanner->tmp);
+        scanner->tmp = NULL;
+    }
+    scanner->real_read = 0;
+    scanner->tmp = tmpfile();
+    if (!scanner->tmp)
+        return SANE_STATUS_NO_MEM;
+
+    return SANE_STATUS_GOOD;
+}
+
 /**
  * \fn SANE_Status escl_scan(capabilities_t *scanner, const ESCL_Device *device, char *result)
  * \brief Function that, after recovering the 'new job', scans the image writed in the
@@ -70,11 +88,10 @@ escl_scan(capabilities_t *scanner, const ESCL_Device *device, char *scanJob, cha
     if (device == NULL)
         return SANE_STATUS_NO_MEM;
 
-    if (scanner->tmp)
+    if (scanner->tmp) {
         fclose(scanner->tmp);
-    scanner->tmp = tmpfile();
-    if (!scanner->tmp)
-        return SANE_STATUS_NO_MEM;
+        scanner->tmp = NULL;
+    }
 
     curl_handle = curl_easy_init();
     if (!curl_handle) {
@@ -91,7 +108,9 @@ escl_scan(capabilities_t *scanner, const ESCL_Device *device, char *scanJob, cha
     curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, scanner);
 
     for (int i = 0; i < MAX_RETRIES; i++) {
-        scanner->real_read = 0;
+        status = escl_reset_scan_file(scanner);
+        if (status != SANE_STATUS_GOOD)
+            goto cleanup;
         CURLcode res = curl_easy_perform(curl_handle);
         status = escl_curl_status(curl_handle, res);
         if (status == SANE_STATUS_DEVICE_BUSY) {
