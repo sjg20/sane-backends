@@ -112,6 +112,8 @@ escl_tls_protocol_supported(char *url)
       curl_easy_setopt(curl, CURLOPT_USE_SSL, (long)CURLUSESSL_TRY);
       curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
       curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+      curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, ESCL_CONNECT_TIMEOUT);
+      curl_easy_setopt(curl, CURLOPT_TIMEOUT, ESCL_REQUEST_TIMEOUT);
       curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
       curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 3L);
       /* Perform the request */
@@ -1861,6 +1863,8 @@ escl_curl_url(CURL *handle, const ESCL_Device *device, SANE_String_Const path)
 
     DBG( 10, "escl_curl_url: URL: %s\n", url );
     curl_easy_setopt(handle, CURLOPT_URL, url);
+    curl_easy_setopt(handle, CURLOPT_CONNECTTIMEOUT, ESCL_CONNECT_TIMEOUT);
+    curl_easy_setopt(handle, CURLOPT_TIMEOUT, ESCL_REQUEST_TIMEOUT);
     free(url);
     DBG( 10, "Before use hack\n");
     if (device->hack) {
