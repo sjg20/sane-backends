@@ -102,6 +102,14 @@ escl_free_device(ESCL_Device *current)
 }
 
 
+static size_t
+escl_null_write_cb(void *ptr, size_t size, size_t nmemb, void *stream)
+{
+    (void)ptr;
+    (void)stream;
+    return size * nmemb;
+}
+
 static int
 escl_tls_protocol_supported(char *url)
 {
@@ -117,6 +125,7 @@ escl_tls_protocol_supported(char *url)
       curl_easy_setopt(curl, CURLOPT_TIMEOUT, ESCL_REQUEST_TIMEOUT);
       curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
       curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 3L);
+      curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, escl_null_write_cb);
       /* Perform the request */
       res = curl_easy_perform(curl);
       curl_easy_cleanup(curl);
