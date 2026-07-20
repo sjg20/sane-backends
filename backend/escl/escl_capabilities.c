@@ -29,6 +29,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 #include <libxml/parser.h>
 
@@ -126,19 +127,27 @@ static SANE_Int *
 int_to_array(SANE_Int *tab, int *tabsize, int cont)
 {
     SANE_Int *board = NULL;
+    int old_size;
     int i = 0;
 
     for (i = 0; i < (*tabsize); i++) {
         if (tab[i] == cont)
             return (tab);
     }
+    old_size = *tabsize;
     (*tabsize)++;
     if (*tabsize == 1) {
         (*tabsize)++;
-        board = malloc(sizeof(SANE_Int *) * (*tabsize) + 1);
     }
-    else
-        board = realloc(tab, sizeof(SANE_Int *) * (*tabsize) + 1);
+    if (*tabsize < 0 || (size_t)*tabsize > (SIZE_MAX / sizeof(*board)) - 1) {
+        *tabsize = old_size;
+        return (tab);
+    }
+    board = realloc(tab, sizeof(*board) * ((size_t)*tabsize + 1));
+    if (!board) {
+        *tabsize = old_size;
+        return (tab);
+    }
     board[0] = *tabsize - 1;
     board[*tabsize - 1] = cont;
     board[*tabsize] = -1;
