@@ -246,6 +246,8 @@ SANE_Status escl_scan(capabilities_t *scanner,
                       char *scanJob,
                       char *result);
 
+SANE_Status escl_reset_scan_file(capabilities_t *scanner);
+
 void escl_scanner(const ESCL_Device *device,
                   char *scanJob,
                   char *result,
