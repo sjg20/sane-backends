@@ -223,10 +223,8 @@ escl_newjob (capabilities_t *scanner, const ESCL_Device *device, SANE_Status *st
 		       scanner->source == ADFDUPLEX ? "true" : "false");
     }
     DBG( 10, "Create NewJob : %s\n", scanner->caps[scanner->source].default_format);
-    if (scanner->caps[scanner->source].pos_x > scanner->caps[scanner->source].width)
-         off_x = (scanner->caps[scanner->source].pos_x > scanner->caps[scanner->source].width) / 2;
-    if (scanner->caps[scanner->source].pos_y > scanner->caps[scanner->source].height)
-         off_y = (scanner->caps[scanner->source].pos_y > scanner->caps[scanner->source].height) / 2;
+    off_x = scanner->caps[scanner->source].pos_x;
+    off_y = scanner->caps[scanner->source].pos_y;
 
     char support_options[1024];
     memset(support_options, 0, 1024);

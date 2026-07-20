@@ -1545,6 +1545,11 @@ sane_start(SANE_Handle h)
         DBG(10, "Missing handler device.\n");
         return (SANE_STATUS_INVAL);
     }
+    if (handler->val[OPT_BR_X].w <= handler->val[OPT_TL_X].w ||
+        handler->val[OPT_BR_Y].w <= handler->val[OPT_TL_Y].w) {
+        DBG(10, "Invalid scan region\n");
+        return (SANE_STATUS_INVAL);
+    }
     handler->cancel = SANE_FALSE;
     handler->write_scan_data = SANE_FALSE;
     handler->decompress_scan_data = SANE_FALSE;
@@ -1599,21 +1604,17 @@ sane_start(SANE_Handle h)
        }
        DBG (10, "Before newjob Color Mode allocation (%s).\n", handler->scanner->caps[handler->scanner->source].default_color);
        handler->scanner->caps[handler->scanner->source].height =
-            MM_TO_PIXEL(handler->val[OPT_BR_Y].w, 300.0);
+            MM_TO_PIXEL((handler->val[OPT_BR_Y].w -
+                         handler->val[OPT_TL_Y].w), 300.0);
        handler->scanner->caps[handler->scanner->source].width =
-            MM_TO_PIXEL(handler->val[OPT_BR_X].w, 300.0);;
-       if (handler->x_range1.min == handler->val[OPT_TL_X].w)
-           handler->scanner->caps[handler->scanner->source].pos_x = 0;
-       else
-           handler->scanner->caps[handler->scanner->source].pos_x =
-               MM_TO_PIXEL((handler->val[OPT_TL_X].w - handler->x_range1.min),
-               300.0);
-       if (handler->y_range1.min == handler->val[OPT_TL_X].w)
-           handler->scanner->caps[handler->scanner->source].pos_y = 0;
-       else
-           handler->scanner->caps[handler->scanner->source].pos_y =
-               MM_TO_PIXEL((handler->val[OPT_TL_Y].w - handler->y_range1.min),
-               300.0);
+            MM_TO_PIXEL((handler->val[OPT_BR_X].w -
+                         handler->val[OPT_TL_X].w), 300.0);
+       handler->scanner->caps[handler->scanner->source].pos_x =
+            MM_TO_PIXEL((handler->val[OPT_TL_X].w - handler->x_range1.min),
+                        300.0);
+       handler->scanner->caps[handler->scanner->source].pos_y =
+            MM_TO_PIXEL((handler->val[OPT_TL_Y].w - handler->y_range1.min),
+                        300.0);
        DBG(10, "Calculate Size Image [%dx%d|%dx%d]\n",
 	        handler->scanner->caps[handler->scanner->source].pos_x,
 	        handler->scanner->caps[handler->scanner->source].pos_y,
