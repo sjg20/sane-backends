@@ -34,6 +34,7 @@
 
 #include <avahi-client/lookup.h>
 #include <avahi-common/error.h>
+#include <avahi-common/malloc.h>
 #include <avahi-common/simple-watch.h>
 
 #include "../include/sane/sanei.h"
@@ -66,8 +67,7 @@ resolve_callback(AvahiServiceResolver *r, AVAHI_GCC_UNUSED AvahiIfIndex interfac
                             AvahiLookupResultFlags __sane_unused__ flags,
                             void __sane_unused__ *userdata)
 {
-    char a[(AVAHI_ADDRESS_STR_MAX + 10)] = { 0 };
-    char *t;
+    char *t = NULL;
     const char *is;
     const char *uuid;
     AvahiStringList   *s;
@@ -93,7 +93,8 @@ resolve_callback(AvahiServiceResolver *r, AVAHI_GCC_UNUSED AvahiIfIndex interfac
 		   break;
 	    }
             t = avahi_string_list_to_string(txt);
-            if (strstr(t, "\"rs=eSCL\"") || strstr(t, "\"rs=/eSCL\"")) {
+            if (t && (strstr(t, "\"rs=eSCL\"") ||
+                      strstr(t, "\"rs=/eSCL\""))) {
 	        s = avahi_string_list_find(txt, "is");
 	        if (s && s->size > 3)
 	            is = (const char*)s->text + 3;
@@ -104,7 +105,6 @@ resolve_callback(AvahiServiceResolver *r, AVAHI_GCC_UNUSED AvahiIfIndex interfac
 	            uuid = (const char*)s->text + 5;
 	        else
 	            uuid = (const char*)NULL;
-                DBG (10, "resolve_callback [%s]\n", a);
                 if (strstr(psz_addr, "127.0.0.1") != NULL) {
                     escl_device_add(port, name, "localhost", is, uuid, (char*)type);
                     DBG (10,"resolve_callback fix redirect [localhost]\n");
@@ -112,8 +112,11 @@ resolve_callback(AvahiServiceResolver *r, AVAHI_GCC_UNUSED AvahiIfIndex interfac
                 else
                     escl_device_add(port, name, psz_addr, is, uuid, (char*)type);
             }
+	    avahi_free(t);
+	    free(psz_addr);
 	}
     }
+    avahi_service_resolver_free(r);
 }
 
 /**
@@ -186,7 +189,8 @@ ESCL_Device *
 escl_devices(SANE_Status *status)
 {
     AvahiClient *client = NULL;
-    AvahiServiceBrowser *sb = NULL;
+    AvahiServiceBrowser *sb_http = NULL;
+    AvahiServiceBrowser *sb_https = NULL;
     int error;
 
     count_finish = 0;
@@ -204,7 +208,7 @@ escl_devices(SANE_Status *status)
         *status = SANE_STATUS_INVAL;
         goto fail;
     }
-    if (!(sb = avahi_service_browser_new(client, AVAHI_IF_UNSPEC,
+    if (!(sb_http = avahi_service_browser_new(client, AVAHI_IF_UNSPEC,
                                                                    AVAHI_PROTO_UNSPEC, "_uscan._tcp",
                                                                    NULL, 0, browse_callback, client))) {
         DBG( 10, "Failed to create service browser: %s\n",
@@ -212,7 +216,7 @@ escl_devices(SANE_Status *status)
         *status = SANE_STATUS_INVAL;
         goto fail;
     }
-    if (!(sb = avahi_service_browser_new(client, AVAHI_IF_UNSPEC,
+    if (!(sb_https = avahi_service_browser_new(client, AVAHI_IF_UNSPEC,
                                                                    AVAHI_PROTO_UNSPEC,
                                                                    "_uscans._tcp", NULL, 0,
                                                                    browse_callback, client))) {
@@ -223,8 +227,10 @@ escl_devices(SANE_Status *status)
     }
     avahi_simple_poll_loop(simple_poll);
 fail:
-    if (sb)
-        avahi_service_browser_free(sb);
+    if (sb_https)
+        avahi_service_browser_free(sb_https);
+    if (sb_http)
+        avahi_service_browser_free(sb_http);
     if (client)
         avahi_client_free(client);
     if (simple_poll)
