@@ -120,13 +120,11 @@ get_PNG_data(capabilities_t *scanner, int *width, int *height, int *bps)
                 goto close_file;
 	}
 
-    if (color_type ==  PNG_COLOR_TYPE_RGB_ALPHA)
-        components = 4;
-    else
-	components = 3;
-
     if (png_get_valid (png_ptr, info_ptr, PNG_INFO_tRNS))
     	png_set_tRNS_to_alpha (png_ptr);
+    if (color_type == PNG_COLOR_TYPE_RGB_ALPHA ||
+        png_get_valid (png_ptr, info_ptr, PNG_INFO_tRNS))
+        png_set_strip_alpha (png_ptr);
     if (bit_depth == 16)
    	png_set_strip_16 (png_ptr);
     else if (bit_depth < 8)
