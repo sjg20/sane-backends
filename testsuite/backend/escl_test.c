@@ -66,6 +66,49 @@ test_crop_passthrough(void)
     free(result);
 }
 
+#if defined HAVE_LIBPNG
+static void
+test_png_grayscale_and_orientation(void)
+{
+    static const unsigned char png_data[] = {
+        0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+        0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+        0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x02,
+        0x08, 0x00, 0x00, 0x00, 0x00, 0x57, 0xdd, 0x52,
+        0xf8, 0x00, 0x00, 0x00, 0x0e, 0x49, 0x44, 0x41,
+        0x54, 0x78, 0x9c, 0x63, 0x10, 0x50, 0x60, 0x30,
+        0x70, 0x00, 0x00, 0x01, 0x76, 0x00, 0xa1, 0xec,
+        0x30, 0x8a, 0xf4, 0x00, 0x00, 0x00, 0x00, 0x49,
+        0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82
+    };
+    const unsigned char expected[] = {
+        0x10, 0x10, 0x10, 0x20, 0x20, 0x20,
+        0x30, 0x30, 0x30, 0x40, 0x40, 0x40
+    };
+    capabilities_t scanner = { 0 };
+    int width = 0, height = 0, bps = 0;
+
+    scanner.tmp = tmpfile();
+    if (!scanner.tmp || fwrite(png_data, 1, sizeof(png_data), scanner.tmp) !=
+                              sizeof(png_data)) {
+        fprintf(stderr, "could not prepare PNG test image\n");
+        if (scanner.tmp)
+            fclose(scanner.tmp);
+        failures++;
+        return;
+    }
+    fseek(scanner.tmp, 0, SEEK_SET);
+    if (get_PNG_data(&scanner, &width, &height, &bps) != SANE_STATUS_GOOD ||
+        width != 2 || height != 2 || bps != 3 || scanner.img_size != 12 ||
+        memcmp(scanner.img_data, expected, sizeof(expected)) != 0) {
+        fprintf(stderr, "PNG grayscale decoding returned unexpected pixels\n");
+        failures++;
+    }
+    free(scanner.img_data);
+    scanner.img_data = NULL;
+}
+#endif
+
 static void
 test_crop_full_surface_fallback(void)
 {
@@ -105,6 +148,9 @@ main(void)
 {
     test_http_status();
     test_crop_passthrough();
+#if defined HAVE_LIBPNG
+    test_png_grayscale_and_orientation();
+#endif
     test_crop_full_surface_fallback();
     return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }
