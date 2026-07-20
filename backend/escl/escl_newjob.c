@@ -307,9 +307,10 @@ wake_up_device:
         curl_easy_setopt(curl_handle, CURLOPT_FOLLOWLOCATION, 1L);
         curl_easy_setopt(curl_handle, CURLOPT_MAXREDIRS, 3L);
         CURLcode res = curl_easy_perform(curl_handle);
-        if (res != CURLE_OK) {
-            DBG( 10, "Create NewJob : the scanner responded incorrectly: %s\n", curl_easy_strerror(res));
-            *status = SANE_STATUS_INVAL;
+        *status = escl_curl_status(curl_handle, res);
+        if (*status != SANE_STATUS_GOOD) {
+            if (*status == SANE_STATUS_DEVICE_BUSY)
+                wakup_count++;
         }
         else {
             if (download->memory != NULL) {
@@ -347,16 +348,7 @@ wake_up_device:
                 }
                 else {
                     DBG( 10, "Create NewJob : The creation of the failed job: %s\n", download->memory);
-                    // If "409 Conflict" appear it means that there is no paper in feeder
-                    if (strstr(download->memory, "409 Conflict") != NULL)
-                        *status = SANE_STATUS_NO_DOCS;
-                    // If "503 Service Unavailable" appear, it means that device is busy (scanning in progress)
-                    else if (strstr(download->memory, "503 Service Unavailable") != NULL) {
-                        wakup_count += 1;
-                        *status = SANE_STATUS_DEVICE_BUSY;
-		    }
-                    else
-                        *status = SANE_STATUS_INVAL;
+                    *status = SANE_STATUS_IO_ERROR;
                 }
             }
             else {
