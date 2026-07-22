@@ -2028,8 +2028,7 @@ attach (const char *devname, ARTEC_Device ** devp)
        * 2) append 8 spaces to make sure we have at least 8 characters
        * 3) copy our fudged vendor string into the inquiry result.
        */
-      strcpy (temp_result, artec_vendor);
-      strcat (temp_result, "        ");
+      snprintf (temp_result, sizeof (temp_result), "%-8.8s", artec_vendor);
       strncpy (result + 8, temp_result, 8);
     }
 
@@ -2040,8 +2039,7 @@ attach (const char *devname, ARTEC_Device ** devp)
        * 2) append 16 spaces to make sure we have at least 16 characters
        * 3) copy our fudged model string into the inquiry result.
        */
-      strcpy (temp_result, artec_model);
-      strcat (temp_result, "                ");
+      snprintf (temp_result, sizeof (temp_result), "%-16.16s", artec_model);
       strncpy (result + 16, temp_result, 16);
     }
 
@@ -2627,7 +2625,7 @@ sane_init (SANE_Int * version_code, SANE_Auth_Callback authorize)
 	  cp += 7;
 	  cp = artec_skip_whitespace (cp);
 
-	  strcpy (artec_vendor, cp);
+	  snprintf (artec_vendor, sizeof (artec_vendor), "%s", cp);
 	  DBG (5, "sane_init: Forced vendor string '%s' in %s.\n",
 	       cp, ARTEC_CONFIG_FILE);
 	}
@@ -2637,7 +2635,7 @@ sane_init (SANE_Int * version_code, SANE_Auth_Callback authorize)
 	  cp += 6;
 	  cp = artec_skip_whitespace (cp);
 
-	  strcpy (artec_model, cp);
+	  snprintf (artec_model, sizeof (artec_model), "%s", cp);
 	  DBG (5, "sane_init: Forced model string '%s' in %s.\n",
 	       cp, ARTEC_CONFIG_FILE);
 	}
