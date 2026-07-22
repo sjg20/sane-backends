@@ -2933,6 +2933,13 @@ List of available devices:", prog_name);
                 }
 	      break;
 	    default:
+#ifdef HAVE_LIBJPEG
+              if (output_format == OUTPUT_PDF)
+                {
+                  sane_pdf_end_doc( pw );
+                  sane_pdf_close ( pw );
+                }
+#endif
 	      if (batch)
 		{
 		  if (ofp)
@@ -2944,13 +2951,6 @@ List of available devices:", prog_name);
 		}
               else
                 {
-#ifdef HAVE_LIBJPEG
-                  if (output_format == OUTPUT_PDF)
-                    {
-                       sane_pdf_end_doc( pw );
-                       sane_pdf_close ( pw );
-                    }
-#endif
                   if (output_file && ofp)
                     {
                       fclose(ofp);
@@ -2971,7 +2971,7 @@ List of available devices:", prog_name);
 #ifdef HAVE_LIBJPEG
 	  if (output_format == OUTPUT_PDF)
             {
-	      if (output_file && ofp)
+	      if (ofp)
 	        {
 	          sane_pdf_end_doc( pw );
 	          fflush( ofp );
