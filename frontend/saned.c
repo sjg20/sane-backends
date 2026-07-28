@@ -1528,6 +1528,7 @@ start_scan (Wire * w, int h, SANE_Start_Reply * reply)
       DBG (DBG_ERR, "start_scan: failed to bind address (%s)\n",
 	   strerror (errno));
       reply->status = SANE_STATUS_IO_ERROR;
+      close(fd);
       return -1;
     }
 
@@ -1536,6 +1537,7 @@ start_scan (Wire * w, int h, SANE_Start_Reply * reply)
       DBG (DBG_ERR, "start_scan: failed to make socket listen (%s)\n",
 	   strerror (errno));
       reply->status = SANE_STATUS_IO_ERROR;
+      close(fd);
       return -1;
     }
 
@@ -1544,6 +1546,7 @@ start_scan (Wire * w, int h, SANE_Start_Reply * reply)
       DBG (DBG_ERR, "start_scan: failed to obtain socket address (%s)\n",
 	   strerror (errno));
       reply->status = SANE_STATUS_IO_ERROR;
+      close(fd);
       return -1;
     }
 
@@ -1623,6 +1626,7 @@ start_scan (Wire * w, int h, SANE_Start_Reply * reply)
       DBG (DBG_ERR, "start_scan: failed to bind address (%s)\n",
 	   strerror (errno));
       reply->status = SANE_STATUS_IO_ERROR;
+      close(fd);
       return -1;
     }
 
@@ -1631,6 +1635,7 @@ start_scan (Wire * w, int h, SANE_Start_Reply * reply)
       DBG (DBG_ERR, "start_scan: failed to make socket listen (%s)\n",
 	   strerror (errno));
       reply->status = SANE_STATUS_IO_ERROR;
+      close(fd);
       return -1;
     }
 
@@ -1639,6 +1644,7 @@ start_scan (Wire * w, int h, SANE_Start_Reply * reply)
       DBG (DBG_ERR, "start_scan: failed to obtain socket address (%s)\n",
 	   strerror (errno));
       reply->status = SANE_STATUS_IO_ERROR;
+      close(fd);
       return -1;
     }
 
@@ -2286,6 +2292,8 @@ process_request (Wire * w)
 	    do_scan (w, h, data_fd);
 	    close (data_fd);
 	  }
+	  else if (fd >= 0)
+	    close(fd);
       }
       break;
 
