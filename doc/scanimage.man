@@ -123,11 +123,17 @@ can be
 .BR pnm ,
 .BR tiff ,
 .BR png ,
+.BR pdf ,
+.BR pdf\-per\-page ,
 or
 .BR jpeg .
 If
 .B \-\-format
-is not specified, PNM is written by default.
+is not specified, PNM is written by default. For the
+.BR pdf
+option, all batch images are added to the same file. For separate PDF files per scanned image, use the
+.BR pdf\-per\-page
+option.
 
 .TP
 .BR \-i "\fI profile\fR, " \-\-icc\-profile =\fIprofile\fR
