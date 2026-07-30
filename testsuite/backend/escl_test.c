@@ -57,6 +57,31 @@ test_http_status(void)
 }
 
 static void
+test_disable_https_config_option(void)
+{
+    SANE_Bool disabled = SANE_FALSE;
+
+    if (!escl_parse_disable_https("option disable-https yes", &disabled) ||
+        disabled != SANE_TRUE) {
+        fprintf(stderr, "disable-https yes was not parsed\n");
+        failures++;
+    }
+
+    if (!escl_parse_disable_https("  option disable-https no", &disabled) ||
+        disabled != SANE_FALSE) {
+        fprintf(stderr, "disable-https no was not parsed\n");
+        failures++;
+    }
+
+    disabled = SANE_TRUE;
+    if (escl_parse_disable_https("device http://127.0.0.1:8080", &disabled) ||
+        disabled != SANE_TRUE) {
+        fprintf(stderr, "unrelated configuration changed disable-https\n");
+        failures++;
+    }
+}
+
+static void
 send_http_response(int fd, int status, const char *body)
 {
     char response[256];
@@ -281,6 +306,7 @@ int
 main(void)
 {
     test_http_status();
+    test_disable_https_config_option();
     test_scan_retry_replaces_response_body();
     test_scan_file_reset();
     test_crop_passthrough();

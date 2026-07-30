@@ -16,6 +16,10 @@
 # Uncomment the line to add your device
 #pdfblacklist Brother_DCP-L2530DW_series
 
+# Disable discovery of HTTPS (_uscans._tcp) devices. HTTP (_uscan._tcp)
+# discovery and explicitly configured devices remain available.
+#option disable-https yes
+
 #device http://123.456.789.10:8080 OptionalModel1
 #device https://123.456.789.10:443 "Optional Model 2"
 #device https://123.456.789.10:443 "HP Color LaserJet FlowMFP M578" "hack=localhost"

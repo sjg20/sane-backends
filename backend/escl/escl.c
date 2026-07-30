@@ -60,6 +60,7 @@
 static const SANE_Device **devlist = NULL;
 static ESCL_Device *list_devices_primary = NULL;
 static int num_devices = 0;
+static SANE_Bool disable_https = SANE_FALSE;
 
 
 typedef struct Handled {
@@ -491,6 +492,8 @@ attach_one_config(SANEI_Config __sane_unused__ *config, const char *line,
     DBG (10, "attach_one_config [%s]\n", line);
     if (*line == '#') return SANE_STATUS_GOOD;
     if (!strncmp(line, "pdfblacklist", 12)) return SANE_STATUS_GOOD;
+    if (escl_parse_disable_https(line, &disable_https))
+        return SANE_STATUS_GOOD;
     if (strncmp(line, "device", 6) == 0) {
         char *name_str = NULL;
         char *opt_model = NULL;
@@ -608,9 +611,10 @@ sane_get_devices(const SANE_Device ***device_list, SANE_Bool local_only)
 
     if (device_list == NULL)
 	return (SANE_STATUS_INVAL);
+    disable_https = SANE_FALSE;
     status2 = sanei_configure_attach(ESCL_CONFIG_FILE, NULL,
 				    attach_one_config, NULL);
-    escl_devices(&status);
+    escl_devices(&status, disable_https);
     if (status != SANE_STATUS_GOOD && status2 != SANE_STATUS_GOOD)
     {
        if (status2 != SANE_STATUS_GOOD)

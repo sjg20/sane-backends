@@ -64,6 +64,18 @@ A list of devices that use the eSCL protocol can be found at
 .IR https://support.apple.com/en-us/HT201311 .
 While these devices are expected to work, your mileage may vary.
 
+.SH CONFIGURATION
+The
+.I escl.conf
+file supports the following option:
+.TP
+.B option disable-https yes
+Disable discovery of devices advertised through the HTTPS
+.B _uscans._tcp
+service. HTTP discovery through
+.B _uscan._tcp
+and devices explicitly listed in the configuration file remain available.
+
 .SH FILES
 .TP
 .I @CONFIGDIR@/escl.conf
