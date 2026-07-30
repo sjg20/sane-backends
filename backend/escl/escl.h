@@ -220,7 +220,9 @@ enum
 #define PIXEL_TO_MM(pixels, dpi) SANE_FIX((double)pixels * 25.4 / (dpi))
 #define MM_TO_PIXEL(millimeters, dpi) (SANE_Word)round(SANE_UNFIX(millimeters) * (dpi) / 25.4)
 
-ESCL_Device *escl_devices(SANE_Status *status);
+ESCL_Device *escl_devices(SANE_Status *status, SANE_Bool disable_https);
+SANE_Bool escl_parse_disable_https(SANE_String_Const line,
+                                   SANE_Bool *disable_https);
 SANE_Status escl_device_add(int port_nb,
                             const char *model_name,
                             char *ip_address,

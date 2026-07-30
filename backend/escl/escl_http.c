@@ -13,6 +13,32 @@
 #include "escl.h"
 
 #include <stdlib.h>
+#include <string.h>
+#include <strings.h>
+
+SANE_Bool
+escl_parse_disable_https(SANE_String_Const line, SANE_Bool *disable_https)
+{
+    char directive[7] = { 0 };
+    char name[14] = { 0 };
+    char value[6] = { 0 };
+    int fields;
+
+    if (line == NULL || disable_https == NULL)
+        return SANE_FALSE;
+
+    fields = sscanf(line, "%6s %13s %5s", directive, name, value);
+    if (fields < 2 ||
+        strcmp(directive, "option") != 0 ||
+        strcmp(name, "disable-https") != 0)
+        return SANE_FALSE;
+
+    *disable_https = (fields == 3 &&
+                      (!strcasecmp(value, "yes") ||
+                       !strcasecmp(value, "true") ||
+                       !strcmp(value, "1")));
+    return SANE_TRUE;
+}
 
 void
 escl_curl_url(CURL *handle, const ESCL_Device *device, SANE_String_Const path)

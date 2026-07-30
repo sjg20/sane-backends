@@ -186,7 +186,7 @@ client_callback(AvahiClient *c, AvahiClientState state,
  * \return NULL (the eSCL devices found)
  */
 ESCL_Device *
-escl_devices(SANE_Status *status)
+escl_devices(SANE_Status *status, SANE_Bool disable_https)
 {
     AvahiClient *client = NULL;
     AvahiServiceBrowser *sb_http = NULL;
@@ -216,14 +216,18 @@ escl_devices(SANE_Status *status)
         *status = SANE_STATUS_INVAL;
         goto fail;
     }
-    if (!(sb_https = avahi_service_browser_new(client, AVAHI_IF_UNSPEC,
-                                                                   AVAHI_PROTO_UNSPEC,
-                                                                   "_uscans._tcp", NULL, 0,
-                                                                   browse_callback, client))) {
-        DBG( 10, "Failed to create service browser: %s\n",
-                                avahi_strerror(avahi_client_errno(client)));
-        *status = SANE_STATUS_INVAL;
-        goto fail;
+    if (!disable_https) {
+        if (!(sb_https = avahi_service_browser_new(client, AVAHI_IF_UNSPEC,
+                                                                       AVAHI_PROTO_UNSPEC,
+                                                                       "_uscans._tcp", NULL, 0,
+                                                                       browse_callback, client))) {
+            DBG( 10, "Failed to create service browser: %s\n",
+                                    avahi_strerror(avahi_client_errno(client)));
+            *status = SANE_STATUS_INVAL;
+            goto fail;
+        }
+    } else {
+        DBG(10, "HTTPS device discovery disabled by configuration.\n");
     }
     avahi_simple_poll_loop(simple_poll);
 fail:
