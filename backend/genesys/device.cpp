@@ -25,6 +25,8 @@
 #include "low.h"
 #include "utilities.h"
 
+#include <iterator>
+
 namespace genesys {
 
 std::vector<unsigned> MethodResolutions::get_resolutions() const
