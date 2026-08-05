@@ -2287,6 +2287,16 @@ main (int argc, char **argv)
 			    device_list[i]->name, device_list[i]->vendor,
 			    device_list[i]->model, device_list[i]->type);
 		  }
+
+		if (i == 0)
+		  printf ("\nNo scanners were identified. If you were expecting "
+			"something different,\ncheck that the scanner is plugged "
+			"in, turned on and detected by the\nsane-find-scanner tool "
+			"(if appropriate). Please read the documentation\nwhich came "
+			"with this software (README, FAQ, manpages).\n");
+
+		if (defdevname)
+		  printf ("default device is `%s'\n", defdevname);
 	      }
 	    else
 	      {
@@ -2364,15 +2374,6 @@ main (int argc, char **argv)
 		      printf ("%s", start);
 		  }
 	      }
-	    if (i == 0 && ch != 'f')
-	      printf ("\nNo scanners were identified. If you were expecting "
-                "something different,\ncheck that the scanner is plugged "
-		"in, turned on and detected by the\nsane-find-scanner tool "
-		"(if appropriate). Please read the documentation\nwhich came "
-		"with this software (README, FAQ, manpages).\n");
-
-	    if (defdevname)
-	      printf ("default device is `%s'\n", defdevname);
 	    scanimage_exit (0);
 	    break;
 	  }
