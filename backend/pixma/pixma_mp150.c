@@ -1258,9 +1258,10 @@ post_process_image_data (pixma_t * s, pixma_imagebuf_t * ib)
                            sptr, dptr, mp->linebuf));*/
 
           /* special image format for *most* devices at high dpi.
-           * MP220, MX360 and generation 5 scanners are exceptions */
+           * MP220, MP280, MX360 and generation 5 scanners are exceptions */
           if (n > 1
               && s->cfg->pid != MP220_PID
+              && s->cfg->pid != MP280_PID
               && s->cfg->pid != MX360_PID
               && (mp->generation < 5
                   /* generation 5 scanners *with* special image format */
@@ -1854,7 +1855,7 @@ const pixma_config_t pixma_mp150_devices[] = {
   DEVICE ("Canon PIXMA MP270", "MP270", MP270_PID, 0, 1200, 0, 0, 638, 877, PIXMA_CAP_CIS),
 
   /* Latest devices (2010) Generation 4 CIS */
-  DEVICE ("Canon PIXMA MP280",  "MP280",  MP280_PID, 0, 600, 0, 0, 638, 877, PIXMA_CAP_CIS), /* TODO: 1200dpi doesn't work yet */
+  DEVICE ("Canon PIXMA MP280",  "MP280",  MP280_PID, 0, 1200, 0, 0, 638, 877, PIXMA_CAP_CIS),
   DEVICE ("Canon PIXMA MP495",  "MP495",  MP495_PID, 0, 600, 0, 0, 638, 877, PIXMA_CAP_CIS), /* ToDo: max. scan resolution = 1200x600dpi */
   DEVICE ("Canon PIXMA MG5100", "MG5100", MG5100_PID, 0, 1200, 0, 0, 638, 877, PIXMA_CAP_CIS),
   DEVICE ("Canon PIXMA MG5200", "MG5200", MG5200_PID, 0, 2400, 0, 0, 638, 877, PIXMA_CAP_CIS),
