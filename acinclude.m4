@@ -767,12 +767,6 @@ AH_BOTTOM([
 #define u_long unsigned long
 #endif
 
-/* Prototype for getenv */
-#ifndef HAVE_GETENV
-#define getenv sanei_getenv
-char * getenv(const char *name);
-#endif
-
 /* Prototype for inet_ntop */
 #ifndef HAVE_INET_NTOP
 #define inet_ntop sanei_inet_ntop
