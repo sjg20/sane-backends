@@ -48,8 +48,8 @@ In order to build SANE, the following tools and libraries are required:
 
 	- GNU make: version 3.70 or newer
 
-	- ISO C99 compiler: GNU C (gcc) is recommended for best results,
-	  but any ISO C99 compliant compiler should do
+	- ISO C11 compiler: GNU C (gcc) is recommended for best results,
+	  but any ISO C11 compliant compiler should do
 
 
 Some more libraries are not strictly necessary to compile SANE, but some

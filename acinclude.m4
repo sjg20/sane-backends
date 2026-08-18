@@ -792,13 +792,6 @@ int inet_pton (int af, const char *src, void *dst);
 int sigprocmask (int how, int *new, int *old);
 #endif
 
-/* Prototype for snprintf */
-#ifndef HAVE_SNPRINTF
-#define snprintf sanei_snprintf
-#include <sys/types.h>
-int snprintf (char *str,size_t count,const char *fmt,...);
-#endif
-
 /* Prototype for strcasestr */
 #ifndef HAVE_STRCASESTR
 #define strcasestr sanei_strcasestr
