@@ -279,7 +279,7 @@ dnl Functions for which we provide an implementation if missing
 AC_CONFIG_LIBOBJ_DIR([lib])
 AC_FUNC_ALLOCA
 AC_REPLACE_FUNCS([getenv inet_ntop inet_pton sigprocmask \
-    sleep snprintf strcasestr strdup strndup strsep syslog usleep \
+    sleep strcasestr strdup strndup strsep syslog usleep \
     vsyslog])
 AS_IF([test x != x$ALLOCA],
       [LTALLOCA=`echo "$ALLOCA" | sed 's/\.o$//; s/\.obj$//'`.lo])
