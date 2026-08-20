@@ -138,6 +138,8 @@ escl_tls_protocol_supported(char *url)
 static int
 escl_is_tls(char * url, char *type)
 {
+    if (!url || !type)
+        return 0;
     if(!strcmp(type, "_uscans._tcp") ||
        !strcmp(type, "https"))
       {
@@ -599,11 +601,20 @@ attach_one_config(SANEI_Config __sane_unused__ *config, const char *line,
 	}
         return SANE_STATUS_GOOD;
     }
+    if (!escl_device || !escl_device->ip_address || !escl_device->type ||
+        escl_device->port_nb < 1 || escl_device->port_nb > 65535) {
+        DBG(10, "Incomplete eSCL device configuration.\n");
+        return SANE_STATUS_INVAL;
+    }
     escl_device->is = strdup("flatbed or ADF scanner");
+    if (!escl_device->is)
+        return SANE_STATUS_NO_MEM;
     escl_device->uuid = NULL;
     char url_port[512] = { 0 };
     snprintf(url_port, sizeof(url_port), "https://%s:%d", escl_device->ip_address, escl_device->port_nb);
     escl_device->tls = escl_is_tls(url_port, escl_device->type);
+    escl_device->https = !strcmp(escl_device->type, "https") ||
+                         !strcmp(escl_device->type, "_uscans._tcp");
     status = escl_check_and_add_device(escl_device);
     if (status == SANE_STATUS_GOOD) {
     	DBG (10, "attach_one_config finish %s://%s:%d", escl_device->type, escl_device->ip_address, escl_device->port_nb);
@@ -1214,6 +1225,7 @@ _get_hack(SANE_String_Const name, ESCL_Device *device)
     {
       DBG(4, "_get_hack: couldn't access %s\n", ESCL_CONFIG_FILE);
       DBG (3, "_get_hack: exit\n");
+      return;
     }
 
   /* loop reading the configuration file, all line beginning by "option " are
@@ -1249,6 +1261,7 @@ _get_blacklist_pdf(void)
     {
       DBG(4, "_get_blacklit: couldn't access %s\n", ESCL_CONFIG_FILE);
       DBG (3, "_get_blacklist: exit\n");
+      return NULL;
     }
 
   /* loop reading the configuration file, all line beginning by "option " are
@@ -1308,6 +1321,7 @@ sane_open(SANE_String_Const name, SANE_Handle *h)
     handler->device = device;  // Handler owns device now.
     blacklist = _get_blacklist_pdf();
     handler->scanner = escl_capabilities(device, blacklist, &status);
+    free(blacklist);
     if (status != SANE_STATUS_GOOD) {
         escl_free_handler(handler);
         return (status);

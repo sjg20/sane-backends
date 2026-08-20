@@ -111,6 +111,8 @@ add_support_option(char *key, int val)
 {
    int size = (strlen(key) * 3) +  10;
    char *tmp = (char*)calloc(1, size);
+   if (!tmp)
+      return NULL;
    snprintf (tmp, size, "<scan:%s>%d</scan:%s>\n", key, val, key);
    return tmp;
 }
@@ -141,6 +143,8 @@ escl_newjob (capabilities_t *scanner, const ESCL_Device *device, SANE_Status *st
     char duplex_mode[1024] = { 0 };
     int wakup_count = 0;
 
+    if (!status)
+        return (NULL);
     *status = SANE_STATUS_GOOD;
     if (device == NULL || scanner == NULL) {
         *status = SANE_STATUS_NO_MEM;
@@ -201,6 +205,12 @@ escl_newjob (capabilities_t *scanner, const ESCL_Device *device, SANE_Status *st
 			    strdup(scanner->caps[scanner->source].DocumentFormats[have_jpeg]);
 	    }
     }
+    if (!scanner->caps[scanner->source].default_format || !device->version) {
+        *status = SANE_STATUS_INVAL;
+        free(upload);
+        free(download);
+        return NULL;
+    }
     if (atof ((const char *)device->version) <= 2.0)
     {
         // For eSCL 2.0 and older clients
@@ -234,6 +244,12 @@ escl_newjob (capabilities_t *scanner, const ESCL_Device *device, SANE_Status *st
        if (scanner->val_threshold != scanner->threshold->value)
        {
           char *tmp = add_support_option("ThresholdSupport", scanner->val_threshold);
+          if (!tmp) {
+             *status = SANE_STATUS_NO_MEM;
+             free(upload);
+             free(download);
+             return NULL;
+          }
           if (support_options[0])
              strcat(support_options, tmp);
           else
@@ -246,6 +262,12 @@ escl_newjob (capabilities_t *scanner, const ESCL_Device *device, SANE_Status *st
        if (scanner->val_sharpen != scanner->sharpen->value)
        {
           char *tmp = add_support_option("SharpenSupport", scanner->val_sharpen);
+          if (!tmp) {
+             *status = SANE_STATUS_NO_MEM;
+             free(upload);
+             free(download);
+             return NULL;
+          }
           if (support_options[0])
              strcat(support_options, tmp);
           else
@@ -258,6 +280,12 @@ escl_newjob (capabilities_t *scanner, const ESCL_Device *device, SANE_Status *st
        if (scanner->val_contrast != scanner->contrast->value)
        {
           char *tmp = add_support_option("ContrastSupport", scanner->val_contrast);
+          if (!tmp) {
+             *status = SANE_STATUS_NO_MEM;
+             free(upload);
+             free(download);
+             return NULL;
+          }
           if (support_options[0])
              strcat(support_options, tmp);
           else
@@ -270,6 +298,12 @@ escl_newjob (capabilities_t *scanner, const ESCL_Device *device, SANE_Status *st
        if (scanner->val_brightness != scanner->brightness->value)
        {
           char *tmp = add_support_option("BrightnessSupport", scanner->val_brightness);
+          if (!tmp) {
+             *status = SANE_STATUS_NO_MEM;
+             free(upload);
+             free(download);
+             return NULL;
+          }
           if (support_options[0])
              strcat(support_options, tmp);
           else
@@ -291,12 +325,33 @@ escl_newjob (capabilities_t *scanner, const ESCL_Device *device, SANE_Status *st
     		duplex_mode[0] == 0 ? " " : duplex_mode,
                 support_options[0] == 0 ? " " : support_options);
     upload->memory = strdup(cap_data);
+    if (!upload->memory) {
+        *status = SANE_STATUS_NO_MEM;
+        free(upload);
+        free(download);
+        return NULL;
+    }
     upload->size = strlen(cap_data);
 wake_up_device:
     DBG( 10, "Create NewJob : %s\n", cap_data);
     download->memory = malloc(1);
+    if (!download->memory) {
+        *status = SANE_STATUS_NO_MEM;
+        free(upload->memory);
+        free(upload);
+        free(download);
+        return NULL;
+    }
     download->size = 0;
     curl_handle = curl_easy_init();
+    if (!curl_handle) {
+        *status = SANE_STATUS_NO_MEM;
+        free(download->memory);
+        free(upload->memory);
+        free(upload);
+        free(download);
+        return NULL;
+    }
     if (curl_handle != NULL) {
         escl_curl_url(curl_handle, device, scan_jobs);
         curl_easy_setopt(curl_handle, CURLOPT_POST, 1L);
