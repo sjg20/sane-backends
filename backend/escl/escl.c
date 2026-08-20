@@ -96,6 +96,7 @@ escl_free_device(ESCL_Device *current)
     free((void*)current->type);
     free((void*)current->is);
     free((void*)current->uuid);
+    free((void*)current->version);
     free((void*)current->unix_socket);
     curl_slist_free_all(current->hack);
     free(current);
@@ -155,8 +156,38 @@ escl_free_handler(escl_sane_t *handler)
     if (handler == NULL)
         return;
 
+    free(handler->result);
+    escl_free_capabilities(handler->scanner);
     escl_free_device(handler->device);
     free(handler);
+}
+
+static void
+escl_free_device_list(void)
+{
+    while (list_devices_primary) {
+        ESCL_Device *next = list_devices_primary->next;
+        escl_free_device(list_devices_primary);
+        list_devices_primary = next;
+    }
+    num_devices = 0;
+}
+
+static void
+escl_free_sane_device_list(void)
+{
+    if (!devlist)
+        return;
+    for (int i = 0; devlist[i]; i++) {
+        SANE_Device *device = (SANE_Device *)devlist[i];
+        free((void *)device->name);
+        free((void *)device->vendor);
+        free((void *)device->model);
+        free((void *)device->type);
+        free(device);
+    }
+    free(devlist);
+    devlist = NULL;
 }
 
 SANE_Status escl_parse_name(SANE_String_Const name, ESCL_Device *device);
@@ -459,17 +490,8 @@ void
 sane_exit(void)
 {
     DBG (10, "escl sane_exit\n");
-    ESCL_Device *next = NULL;
-
-    while (list_devices_primary != NULL) {
-	next = list_devices_primary->next;
-	free(list_devices_primary);
-	list_devices_primary = next;
-    }
-    if (devlist)
-	free (devlist);
-    list_devices_primary = NULL;
-    devlist = NULL;
+    escl_free_device_list();
+    escl_free_sane_device_list();
     curl_global_cleanup();
 }
 
@@ -605,12 +627,12 @@ sane_get_devices(const SANE_Device ***device_list, SANE_Bool local_only)
 
     DBG (10, "escl sane_get_devices\n");
     ESCL_Device *dev = NULL;
-    static const SANE_Device **devlist = 0;
     SANE_Status status;
     SANE_Status status2;
 
     if (device_list == NULL)
 	return (SANE_STATUS_INVAL);
+    escl_free_device_list();
     disable_https = SANE_FALSE;
     status2 = sanei_configure_attach(ESCL_CONFIG_FILE, NULL,
 				    attach_one_config, NULL);
@@ -622,14 +644,17 @@ sane_get_devices(const SANE_Device ***device_list, SANE_Bool local_only)
        if (status != SANE_STATUS_GOOD)
                return (status);
     }
-    if (devlist)
-	free(devlist);
+    escl_free_sane_device_list();
     devlist = (const SANE_Device **) calloc (num_devices + 1, sizeof (devlist[0]));
     if (devlist == NULL)
 	return (SANE_STATUS_NO_MEM);
     int i = 0;
     for (dev = list_devices_primary; i < num_devices; dev = dev->next) {
 	SANE_Device *s_dev = convertFromESCLDev(dev);
+	if (!s_dev) {
+            escl_free_sane_device_list();
+            return SANE_STATUS_NO_MEM;
+        }
 	devlist[i] = s_dev;
 	i++;
     }
