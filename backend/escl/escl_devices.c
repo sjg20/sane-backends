@@ -41,6 +41,7 @@
 
 static AvahiSimplePoll *simple_poll = NULL;
 static int count_finish = 0;
+static int count_finish_target = 2;
 
 /**
  * \fn static void resolve_callback(AvahiServiceResolver *r, AVAHI_GCC_UNUSED
@@ -154,7 +155,7 @@ browse_callback(AvahiServiceBrowser *b, AvahiIfIndex interface,
         if (event != AVAHI_BROWSER_CACHE_EXHAUSTED)
            {
 		count_finish++;
-		if (count_finish == 2)
+		if (count_finish == count_finish_target)
             		avahi_simple_poll_quit(simple_poll);
 	   }
         break;
@@ -194,6 +195,7 @@ escl_devices(SANE_Status *status, SANE_Bool disable_https)
     int error;
 
     count_finish = 0;
+    count_finish_target = disable_https ? 1 : 2;
 
     *status = SANE_STATUS_GOOD;
     if (!(simple_poll = avahi_simple_poll_new())) {
