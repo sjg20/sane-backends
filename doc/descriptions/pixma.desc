@@ -598,8 +598,8 @@
 :model "PIXMA MP280"
 :interface "USB"
 :usbid "0x04a9" "0x1746"
-:status :good
-:comment "All resolutions supported (up to 600DPI)."
+:status :complete
+:comment "All resolutions supported (up to 1200DPI)."
 
 :model "PIXMA MP360"
 :interface "USB"
