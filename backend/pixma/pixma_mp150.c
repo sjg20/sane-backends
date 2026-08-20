@@ -502,6 +502,9 @@ typedef struct mp150_t
    u8[ILEN]   image data
  */
 
+pixma_config_t *pixma_custom_mp150_devices = NULL;
+int pixma_custom_mp150_devices_count = 0;
+
 static void mp150_finish_scan (pixma_t * s);
 
 static int
@@ -2069,3 +2072,37 @@ const pixma_config_t pixma_mp150_devices[] = {
 
   END_OF_DEVICE_LIST
 };
+
+void
+pixma_add_custom_mp150_device (const char *name,
+                               const char *model,
+                               const char *pid,
+                               const char *dpi,
+                               const char *capacity)
+{
+   int ddpi = 0;
+   uint16_t ppid = 0;
+   unsigned caps = 0;
+   int lcaps = 0;
+
+   if (pixma_custom_mp150_devices_count == 0) {
+      pixma_custom_mp150_devices = (pixma_config_t *)calloc (2, sizeof(pixma_config_t));
+   } else {
+      pixma_custom_mp150_devices = realloc (pixma_custom_mp150_devices, sizeof(pixma_config_t) * (pixma_custom_mp150_devices_count + 2));
+   }
+
+   while (ccaps[lcaps] != NULL) {
+       if(strstr(capacity, ccaps[lcaps]) != NULL) {
+	  caps = caps | ucaps[lcaps];
+       }
+       lcaps++;
+   }
+
+   ddpi = atoi(dpi);
+   ppid = (uint16_t)strtoll(pid, NULL, 16);
+   pixma_config_t elem = DEVICE (name, model, ppid, 0, ddpi, 0, 0, 638, 877, caps);
+   pixma_custom_mp150_devices[pixma_custom_mp150_devices_count] = elem;
+   pixma_config_t noelem = END_OF_DEVICE_LIST;
+   pixma_custom_mp150_devices[(pixma_custom_mp150_devices_count + 1)] = noelem;
+   pixma_custom_mp150_devices_count++;
+}

@@ -152,6 +152,9 @@ static pixma_sane_t *first_scanner = NULL;
 static const SANE_Device **dev_list = NULL;
 static const char* conf_devices[MAX_CONF_DEVICES];
 
+void pixma_add_custom_mp150_device (const char *, const char *, const char *, const char *, const char *);
+void pixma_add_custom_iclass_device (const char *, const char *, const char *, const char *, const char *, const char *, const char *, const char *);
+
 static void mark_all_button_options_cached ( struct pixma_sane_t * ss )
 {
   int i;
@@ -159,19 +162,144 @@ static void mark_all_button_options_cached ( struct pixma_sane_t * ss )
       ss -> button_option_is_cached[i] = 1;
 }
 
+static SANE_Status config_attach_pixma_generic (const char *line)
+{
+    int i;
+    for (i=0; i < (MAX_CONF_DEVICES -1); i++) {
+      if (conf_devices[i] == NULL) {
+        conf_devices[i] = strdup(line);
+        return SANE_STATUS_GOOD;
+      }
+    }
+    return SANE_STATUS_INVAL;
+}
+
 static SANE_Status config_attach_pixma(SANEI_Config __sane_unused__ * config,
-				       const char *devname,
+				       const char *line,
 				       void __sane_unused__ *data)
 {
-  int i;
-  for (i=0; i < (MAX_CONF_DEVICES -1); i++)
-    {
-      if(conf_devices[i] == NULL)
-        {
-          conf_devices[i] = strdup(devname);
-          return SANE_STATUS_GOOD;
-        }
+  if (*line == '#') return SANE_STATUS_GOOD;
+  if (strncmp(line, "device", 6) == 0) {
+    char *type_str = NULL;
+
+    line = sanei_config_get_string(line + 6, &type_str);
+    if (!type_str || !*type_str) {
+        PDBG (pixma_dbg (3, "Canon Type device missing.\n"));
+        return SANE_STATUS_INVAL;
     }
+    PDBG (pixma_dbg (3, "Canon Type device is [%s].\n", type_str));
+    if (strcmp(type_str, "MP150") == 0) {
+        char *name_str = NULL;
+        char *model_str = NULL;
+        char *pid_str = NULL;
+        char *dpi_str = NULL;
+        char *capacity_str = NULL;
+        // # DEVICE NAME MODEL PID DPI CAPACITE
+        PDBG (pixma_dbg (3, "New define pixma description (%s)\n", line));
+        line = sanei_config_get_string(line , &name_str);
+        if (!name_str || !*name_str) {
+           PDBG (pixma_dbg (3, "Pixma name missing.\n"));
+           return SANE_STATUS_INVAL;
+        }
+        PDBG (pixma_dbg (3, "Pixma name is [%s].\n", name_str));
+        line = sanei_config_get_string(line, &model_str);
+        if (!model_str || !*model_str) {
+            PDBG (pixma_dbg (3, "Pixma model missing.\n"));
+            return SANE_STATUS_INVAL;
+        }
+        PDBG (pixma_dbg (3, "Pixma model is [%s].\n", model_str));
+        line = sanei_config_get_string(line, &pid_str);
+        if (!pid_str || !*pid_str) {
+            PDBG (pixma_dbg (3, "Pixma usbid missig.\n"));
+            return SANE_STATUS_INVAL;
+        }
+        PDBG (pixma_dbg (3, "Pixma pid is [%s].\n", pid_str));
+        line = sanei_config_get_string(line, &dpi_str);
+        if (!dpi_str || !*dpi_str) {
+            PDBG (pixma_dbg (3, "Pixma dpi missig.\n"));
+            return SANE_STATUS_INVAL;
+        }
+        PDBG (pixma_dbg (3, "Pixma dpi is [%s].\n", dpi_str));
+        line = sanei_config_get_string(line, &capacity_str);
+        if (!capacity_str || !*capacity_str) {
+            PDBG (pixma_dbg (3, "Pixma capacity missig.\n"));
+            return SANE_STATUS_INVAL;
+        }
+        PDBG (pixma_dbg (3, "Pixma capacity is [%s].\n", capacity_str));
+        pixma_add_custom_mp150_device (name_str, model_str, pid_str, dpi_str, capacity_str);
+        return SANE_STATUS_GOOD;
+
+    }
+    else if (strcmp(type_str, "ICLASS") == 0) {
+        char *name_str = NULL;
+        char *model_str = NULL;
+        char *pid_str = NULL;
+        char *dpi_str = NULL;
+        char *adpi_str = NULL;
+        char *w_str = NULL;
+        char *h_str = NULL;
+        char *capacity_str = NULL;
+        // # DEVICE NAME MODEL PID DPI ADF_DPI WIDTH HEIGHT CAPACITE
+        PDBG (pixma_dbg (3, "New define iclass description (%s)\n", line));
+        line = sanei_config_get_string(line , &name_str);
+        if (!name_str || !*name_str) {
+           PDBG (pixma_dbg (3, "Iclass name missing.\n"));
+           return SANE_STATUS_INVAL;
+        }
+        PDBG (pixma_dbg (3, "Iclass name is [%s].\n", name_str));
+        line = sanei_config_get_string(line, &model_str);
+        if (!model_str || !*model_str) {
+            PDBG (pixma_dbg (3, "Iclass model missig.\n"));
+            return SANE_STATUS_INVAL;
+        }
+        PDBG (pixma_dbg (3, "Iclass model is [%s].\n", model_str));
+        line = sanei_config_get_string(line, &pid_str);
+        if (!pid_str || !*pid_str) {
+            PDBG (pixma_dbg (3, "Iclass pid missig.\n"));
+            return SANE_STATUS_INVAL;
+        }
+        PDBG (pixma_dbg (3, "Iclass pid is [%s].\n", pid_str));
+        line = sanei_config_get_string(line, &dpi_str);
+        if (!dpi_str || !*dpi_str) {
+            PDBG (pixma_dbg (3, "Pixma dpi missig.\n"));
+            return SANE_STATUS_INVAL;
+        }
+        PDBG (pixma_dbg (3, "Pixma dpi is [%s].\n", dpi_str));;
+        line = sanei_config_get_string(line, &adpi_str);
+        if (!adpi_str || !*adpi_str) {
+            PDBG (pixma_dbg (3, "Pixma adf-dpi missig.\n"));
+            return SANE_STATUS_INVAL;
+        }
+        PDBG (pixma_dbg (3, "Pixma adf-dpi is [%s].\n", adpi_str));
+        line = sanei_config_get_string(line, &w_str);
+        if (!w_str || !*w_str) {
+            PDBG (pixma_dbg (3, "Pixma width missig.\n"));
+            return SANE_STATUS_INVAL;
+        }
+        PDBG (pixma_dbg (3, "Pixma width is [%s].\n", w_str));
+        line = sanei_config_get_string(line, &h_str);
+        if (!h_str || !*h_str) {
+            PDBG (pixma_dbg (3, "Pixma height missig.\n"));
+            return SANE_STATUS_INVAL;
+        }
+        PDBG (pixma_dbg (3, "Pixma height is [%s].\n", h_str));
+        line = sanei_config_get_string(line, &capacity_str);
+        if (!capacity_str || !*capacity_str) {
+            PDBG (pixma_dbg (3, "Pixma capacity missig.\n"));
+            return SANE_STATUS_INVAL;
+        }
+        PDBG (pixma_dbg (3, "Pixma capacity is [%s].\n", capacity_str));
+        pixma_add_custom_iclass_device (name_str, model_str, pid_str, dpi_str, adpi_str, w_str, h_str, capacity_str);
+        return SANE_STATUS_GOOD;
+    }
+    else {
+         return config_attach_pixma_generic (line);
+    }
+  }
+  else {
+
+    return config_attach_pixma_generic (line);
+  }
   return SANE_STATUS_INVAL;
 }
 

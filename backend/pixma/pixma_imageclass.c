@@ -164,6 +164,8 @@ typedef struct iclass_t
   uint8_t adf_state;            /* handle adf scanning */
 } iclass_t;
 
+pixma_config_t *pixma_custom_iclass_devices = NULL;
+int pixma_custom_iclass_devices_count = 0;
 
 static int is_scanning_from_adf (pixma_t * s)
 {
@@ -1001,3 +1003,46 @@ const pixma_config_t pixma_iclass_devices[] = {
   DEV ("Canon i-SENSYS MF440 Series", "MF440", MF440_PID, 600, 300, 637, 877, PIXMA_CAP_ADFDUP),
   DEV (NULL, NULL, 0, 0, 0, 0, 0, 0)
 };
+
+void
+pixma_add_custom_iclass_device (const char *name,
+                                const char *model,
+                                const char *pid,
+                                const char *dpi,
+                                const char *adf_dpi,
+                                const char *w,
+                                const char *h,
+                                const char *capacity)
+{
+   int ddpi = 0;
+   int dadpi = 0;
+   int dw = 0;
+   int dh = 0;
+   uint16_t ppid = 0;
+   unsigned caps = 0;
+   int lcaps = 0;
+
+   if (pixma_custom_iclass_devices_count == 0) {
+      pixma_custom_iclass_devices = (pixma_config_t *)calloc (2, sizeof(pixma_config_t));
+   } else {
+      pixma_custom_iclass_devices = realloc (pixma_custom_iclass_devices, sizeof(pixma_config_t) * (pixma_custom_iclass_devices_count + 2));
+   }
+
+   while (ccaps[lcaps] != NULL) {
+       if(strstr(capacity, ccaps[lcaps]) != NULL) {
+	  caps = caps | ucaps[lcaps];
+       }
+       lcaps++;
+   }
+
+   ddpi = atoi(dpi);
+   dadpi = atoi(adf_dpi);
+   dw = atoi(w);
+   dh = atoi(h);
+   ppid = (uint16_t)strtoll(pid, NULL, 16);
+   pixma_config_t elem = DEV (name, model, ppid, ddpi, dadpi, dw, dh, caps);
+   pixma_custom_iclass_devices[pixma_custom_iclass_devices_count] = elem;
+   pixma_config_t noelem = DEV (NULL, NULL, 0, 0, 0, 0, 0, 0);
+   pixma_custom_iclass_devices[(pixma_custom_iclass_devices_count + 1)] = noelem;
+   pixma_custom_iclass_devices_count++;
+}
