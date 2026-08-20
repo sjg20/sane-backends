@@ -41,6 +41,45 @@ struct cap
     size_t size;
 };
 
+static void
+free_string_array(SANE_String_Const *strings, int size)
+{
+    if (!strings)
+        return;
+    for (int i = 0; i < size; i++)
+        free((void *)strings[i]);
+    free(strings);
+}
+
+void
+escl_free_capabilities(capabilities_t *scanner)
+{
+    if (!scanner)
+        return;
+
+    if (scanner->tmp)
+        fclose(scanner->tmp);
+    free(scanner->scanJob);
+    free(scanner->img_data);
+
+    free_string_array(scanner->Sources, scanner->SourcesSize);
+    for (int type = 0; type < 3; type++) {
+        caps_t *caps = &scanner->caps[type];
+        free(caps->default_color);
+        free(caps->default_format);
+        free_string_array(caps->ColorModes, caps->ColorModesSize);
+        free_string_array(caps->ContentTypes, caps->ContentTypesSize);
+        free_string_array(caps->DocumentFormats, caps->DocumentFormatsSize);
+        free_string_array(caps->SupportedIntents, caps->SupportedIntentsSize);
+        free(caps->SupportedResolutions);
+    }
+    free(scanner->brightness);
+    free(scanner->contrast);
+    free(scanner->sharpen);
+    free(scanner->threshold);
+    free(scanner);
+}
+
 static size_t
 header_callback(void *str, size_t size, size_t nmemb, void *userp)
 {
@@ -92,7 +131,9 @@ char_to_array(SANE_String_Const *tab, int *tabsize, SANE_String_Const mode, int 
 {
     SANE_String_Const *board = NULL;
     int i = 0;
+    int new_size;
     SANE_String_Const convert = NULL;
+    char *copy = NULL;
 
     if (mode == NULL)
         return (tab);
@@ -107,13 +148,20 @@ char_to_array(SANE_String_Const *tab, int *tabsize, SANE_String_Const mode, int 
         if (strcmp(tab[i], convert) == 0)
             return (tab);
     }
-    (*tabsize)++;
-    if (*tabsize == 1)
-        board = (SANE_String_Const *)malloc(sizeof(SANE_String_Const) * ((*tabsize) + 1));
-    else
-        board = (SANE_String_Const *)realloc(tab, sizeof(SANE_String_Const) * ((*tabsize) + 1));
-    board[*tabsize - 1] = (SANE_String_Const)strdup(convert);
-    board[*tabsize] = NULL;
+    new_size = *tabsize + 1;
+    if (new_size < 1 || (size_t)(new_size + 1) > SIZE_MAX / sizeof(*board))
+        return tab;
+    copy = strdup(convert);
+    if (!copy)
+        return tab;
+    board = realloc(tab, sizeof(*board) * ((size_t)new_size + 1));
+    if (!board) {
+        free(copy);
+        return tab;
+    }
+    board[new_size - 1] = copy;
+    board[new_size] = NULL;
+    *tabsize = new_size;
     return (board);
 }
 
@@ -328,6 +376,8 @@ print_support(xmlNode *node)
     support_t *sup = (support_t*)calloc(1, sizeof(support_t));
     int cpt = 0;
     int have_norm = 0;
+    if (!sup)
+        return NULL;
     while (node) {
 	if (!strcmp((const char *)node->name, "Min")){
             sup->min = atoi((const char *)xmlNodeGetContent(node));
@@ -550,24 +600,43 @@ escl_capabilities(ESCL_Device *device, char *blacklist, SANE_Status *status)
     struct cap *header = NULL;
     xmlDoc *data = NULL;
     xmlNode *node = NULL;
-    int i = 0;
     const char *scanner_capabilities = "/eSCL/ScannerCapabilities";
     SANE_Bool use_pdf = SANE_TRUE;
 
+    if (!status)
+        return NULL;
     *status = SANE_STATUS_GOOD;
-    if (device == NULL)
+    if (!device || !scanner) {
         *status = SANE_STATUS_NO_MEM;
+        goto clean_data;
+    }
     var = (struct cap *)calloc(1, sizeof(struct cap));
-    if (var == NULL)
+    if (var == NULL) {
         *status = SANE_STATUS_NO_MEM;
+        goto clean_data;
+    }
     var->memory = malloc(1);
+    if (!var->memory) {
+        *status = SANE_STATUS_NO_MEM;
+        goto clean_data;
+    }
     var->size = 0;
     header = (struct cap *)calloc(1, sizeof(struct cap));
-    if (header == NULL)
+    if (header == NULL) {
         *status = SANE_STATUS_NO_MEM;
+        goto clean_data;
+    }
     header->memory = malloc(1);
+    if (!header->memory) {
+        *status = SANE_STATUS_NO_MEM;
+        goto clean_data;
+    }
     header->size = 0;
     curl_handle = curl_easy_init();
+    if (!curl_handle) {
+        *status = SANE_STATUS_NO_MEM;
+        goto clean_data;
+    }
     escl_curl_url(curl_handle, device, scanner_capabilities);
     curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, memory_callback_c);
     curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, (void *)var);
@@ -601,9 +670,11 @@ escl_capabilities(ESCL_Device *device, char *blacklist, SANE_Status *status)
         device->hack = curl_slist_append(NULL, "Host: localhost");
 
     scanner->source = 0;
-    scanner->Sources = (SANE_String_Const *)malloc(sizeof(SANE_String_Const) * 4);
-    for (i = 0; i < 4; i++)
-       scanner->Sources[i] = NULL;
+    scanner->Sources = (SANE_String_Const *)calloc(4, sizeof(SANE_String_Const));
+    if (!scanner->Sources) {
+        *status = SANE_STATUS_NO_MEM;
+        goto clean;
+    }
     print_xml_c(node, device, scanner, -1);
     DBG (3, "1-blacklist_pdf: %s\n", (use_pdf ? "TRUE" : "FALSE") );
     if (device->model_name != NULL) {
@@ -637,5 +708,9 @@ clean_data:
     if (var)
       free(var->memory);
     free(var);
+    if (*status != SANE_STATUS_GOOD) {
+        escl_free_capabilities(scanner);
+        scanner = NULL;
+    }
     return (scanner);
 }

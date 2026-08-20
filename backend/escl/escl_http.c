@@ -46,6 +46,9 @@ escl_curl_url(CURL *handle, const ESCL_Device *device, SANE_String_Const path)
     int url_len;
     char *url;
 
+    if (!handle || !device || !device->ip_address || !path)
+        return;
+
     url_len = snprintf(NULL, 0, "%s://%s:%d%s",
                        (device->https ? "https" : "http"), device->ip_address,
                        device->port_nb, path) + 1;

@@ -96,6 +96,7 @@ escl_free_device(ESCL_Device *current)
     free((void*)current->type);
     free((void*)current->is);
     free((void*)current->uuid);
+    free((void*)current->version);
     free((void*)current->unix_socket);
     curl_slist_free_all(current->hack);
     free(current);
@@ -137,6 +138,8 @@ escl_tls_protocol_supported(char *url)
 static int
 escl_is_tls(char * url, char *type)
 {
+    if (!url || !type)
+        return 0;
     if(!strcmp(type, "_uscans._tcp") ||
        !strcmp(type, "https"))
       {
@@ -155,8 +158,38 @@ escl_free_handler(escl_sane_t *handler)
     if (handler == NULL)
         return;
 
+    free(handler->result);
+    escl_free_capabilities(handler->scanner);
     escl_free_device(handler->device);
     free(handler);
+}
+
+static void
+escl_free_device_list(void)
+{
+    while (list_devices_primary) {
+        ESCL_Device *next = list_devices_primary->next;
+        escl_free_device(list_devices_primary);
+        list_devices_primary = next;
+    }
+    num_devices = 0;
+}
+
+static void
+escl_free_sane_device_list(void)
+{
+    if (!devlist)
+        return;
+    for (int i = 0; devlist[i]; i++) {
+        SANE_Device *device = (SANE_Device *)devlist[i];
+        free((void *)device->name);
+        free((void *)device->vendor);
+        free((void *)device->model);
+        free((void *)device->type);
+        free(device);
+    }
+    free(devlist);
+    devlist = NULL;
 }
 
 SANE_Status escl_parse_name(SANE_String_Const name, ESCL_Device *device);
@@ -459,17 +492,8 @@ void
 sane_exit(void)
 {
     DBG (10, "escl sane_exit\n");
-    ESCL_Device *next = NULL;
-
-    while (list_devices_primary != NULL) {
-	next = list_devices_primary->next;
-	free(list_devices_primary);
-	list_devices_primary = next;
-    }
-    if (devlist)
-	free (devlist);
-    list_devices_primary = NULL;
-    devlist = NULL;
+    escl_free_device_list();
+    escl_free_sane_device_list();
     curl_global_cleanup();
 }
 
@@ -577,11 +601,20 @@ attach_one_config(SANEI_Config __sane_unused__ *config, const char *line,
 	}
         return SANE_STATUS_GOOD;
     }
+    if (!escl_device || !escl_device->ip_address || !escl_device->type ||
+        escl_device->port_nb < 1 || escl_device->port_nb > 65535) {
+        DBG(10, "Incomplete eSCL device configuration.\n");
+        return SANE_STATUS_INVAL;
+    }
     escl_device->is = strdup("flatbed or ADF scanner");
+    if (!escl_device->is)
+        return SANE_STATUS_NO_MEM;
     escl_device->uuid = NULL;
     char url_port[512] = { 0 };
     snprintf(url_port, sizeof(url_port), "https://%s:%d", escl_device->ip_address, escl_device->port_nb);
     escl_device->tls = escl_is_tls(url_port, escl_device->type);
+    escl_device->https = !strcmp(escl_device->type, "https") ||
+                         !strcmp(escl_device->type, "_uscans._tcp");
     status = escl_check_and_add_device(escl_device);
     if (status == SANE_STATUS_GOOD) {
     	DBG (10, "attach_one_config finish %s://%s:%d", escl_device->type, escl_device->ip_address, escl_device->port_nb);
@@ -605,12 +638,12 @@ sane_get_devices(const SANE_Device ***device_list, SANE_Bool local_only)
 
     DBG (10, "escl sane_get_devices\n");
     ESCL_Device *dev = NULL;
-    static const SANE_Device **devlist = 0;
     SANE_Status status;
     SANE_Status status2;
 
     if (device_list == NULL)
 	return (SANE_STATUS_INVAL);
+    escl_free_device_list();
     disable_https = SANE_FALSE;
     status2 = sanei_configure_attach(ESCL_CONFIG_FILE, NULL,
 				    attach_one_config, NULL);
@@ -622,14 +655,17 @@ sane_get_devices(const SANE_Device ***device_list, SANE_Bool local_only)
        if (status != SANE_STATUS_GOOD)
                return (status);
     }
-    if (devlist)
-	free(devlist);
+    escl_free_sane_device_list();
     devlist = (const SANE_Device **) calloc (num_devices + 1, sizeof (devlist[0]));
     if (devlist == NULL)
 	return (SANE_STATUS_NO_MEM);
     int i = 0;
     for (dev = list_devices_primary; i < num_devices; dev = dev->next) {
 	SANE_Device *s_dev = convertFromESCLDev(dev);
+	if (!s_dev) {
+            escl_free_sane_device_list();
+            return SANE_STATUS_NO_MEM;
+        }
 	devlist[i] = s_dev;
 	i++;
     }
@@ -1189,6 +1225,7 @@ _get_hack(SANE_String_Const name, ESCL_Device *device)
     {
       DBG(4, "_get_hack: couldn't access %s\n", ESCL_CONFIG_FILE);
       DBG (3, "_get_hack: exit\n");
+      return;
     }
 
   /* loop reading the configuration file, all line beginning by "option " are
@@ -1224,6 +1261,7 @@ _get_blacklist_pdf(void)
     {
       DBG(4, "_get_blacklit: couldn't access %s\n", ESCL_CONFIG_FILE);
       DBG (3, "_get_blacklist: exit\n");
+      return NULL;
     }
 
   /* loop reading the configuration file, all line beginning by "option " are
@@ -1283,6 +1321,7 @@ sane_open(SANE_String_Const name, SANE_Handle *h)
     handler->device = device;  // Handler owns device now.
     blacklist = _get_blacklist_pdf();
     handler->scanner = escl_capabilities(device, blacklist, &status);
+    free(blacklist);
     if (status != SANE_STATUS_GOOD) {
         escl_free_handler(handler);
         return (status);

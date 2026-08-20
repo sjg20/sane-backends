@@ -50,6 +50,8 @@ escl_delete(const ESCL_Device *device, char *uri)
 
     if (uri == NULL)
         return;
+    if (!device || !uri)
+        return;
     curl_handle = curl_easy_init();
     if (curl_handle != NULL) {
         escl_curl_url(curl_handle, device, uri);
@@ -78,6 +80,8 @@ escl_scanner(const ESCL_Device *device, char *scanJob, char *result,  SANE_Bool 
         return;
 CURL_CALL:
     curl_handle = curl_easy_init();
+    if (!curl_handle)
+        return;
     if (curl_handle != NULL) {
         snprintf(scan_cmd, sizeof(scan_cmd), "%s%s%s%s",
                  scan_jobs, scanJob, result, scanner_start);

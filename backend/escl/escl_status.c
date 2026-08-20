@@ -215,8 +215,17 @@ reload:
     if (var == NULL)
         return (SANE_STATUS_NO_MEM);
     var->memory = malloc(1);
+    if (!var->memory) {
+        free(var);
+        return SANE_STATUS_NO_MEM;
+    }
     var->size = 0;
     curl_handle = curl_easy_init();
+    if (!curl_handle) {
+        free(var->memory);
+        free(var);
+        return SANE_STATUS_NO_MEM;
+    }
 
     escl_curl_url(curl_handle, device, scanner_status);
     curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, memory_callback_s);
@@ -364,8 +373,17 @@ escl_reset_all_jobs(ESCL_Device *device)
         return (SANE_STATUS_NO_MEM);
     DBG(10, "2 - escl_reset_all_jobs\n");
     var->memory = malloc(1);
+    if (!var->memory) {
+        free(var);
+        return SANE_STATUS_NO_MEM;
+    }
     var->size = 0;
     curl_handle = curl_easy_init();
+    if (!curl_handle) {
+        free(var->memory);
+        free(var);
+        return SANE_STATUS_NO_MEM;
+    }
 
     escl_curl_url(curl_handle, device, scanner_status);
     curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, memory_callback_s);
