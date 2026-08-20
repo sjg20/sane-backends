@@ -1465,7 +1465,7 @@ libpixma_la_SOURCES = \
 	pixma/pixma_bjnp.h \
 	pixma/pixma_bjnp_private.h \
 	pixma/pixma_rename.h
-libpixma_la_CPPFLAGS = $(AM_CPPFLAGS) $(XML_CFLAGS) -DBACKEND_NAME=pixma
+libpixma_la_CPPFLAGS = $(AM_CPPFLAGS) $(XML_CFLAGS) $(libcurl_CFLAGS) $(SNMP_CFLAGS) -DBACKEND_NAME=pixma
 
 $(srcdir)/pixma/pixma_sane_options.h: $(srcdir)/pixma/pixma.c
 	@if $(AM_V_P); then \
@@ -1498,7 +1498,7 @@ libsane_pixma_la_LIBADD = $(COMMON_LIBS) \
     sane_strstatus.lo \
     ../sanei/sanei_usb.lo \
     ../sanei/sanei_thread.lo \
-    $(SANEI_SANEI_JPEG_LO) $(JPEG_LIBS) $(XML_LIBS) $(MATH_LIB) $(SOCKET_LIBS) $(USB_LIBS) $(SANEI_THREAD_LIBS) $(RESMGR_LIBS)
+    $(SANEI_SANEI_JPEG_LO) $(JPEG_LIBS) $(XML_LIBS) $(libcurl_LIBS) $(SNMP_LIBS) $(MATH_LIB) $(SOCKET_LIBS) $(USB_LIBS) $(SANEI_THREAD_LIBS) $(RESMGR_LIBS)
 EXTRA_DIST += pixma.conf.in
 
 libplustek_la_SOURCES = plustek.c plustek.h

@@ -46,6 +46,16 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <limits.h>		/* INT_MAX */
+#include <arpa/inet.h>
+
+#if HAVE_LIBCURL
+#include <curl/curl.h>
+#endif
+
+#if HAVE_LIBSNMP
+#include <net-snmp/net-snmp-config.h>
+#include <net-snmp/net-snmp-includes.h>
+#endif
 
 #include "pixma_rename.h"
 #include "pixma_common.h"
@@ -68,6 +78,14 @@ struct pixma_io_t
   pixma_io_t *next;
   int interface;
   SANE_Int dev;
+#if HAVE_LIBCURL
+  char *http_url;
+  CURL *http_curl;
+  struct curl_slist *http_headers;
+  unsigned char *http_data;
+  size_t http_len;
+  size_t http_pos;
+#endif
 };
 
 typedef struct scanner_info_t
@@ -82,10 +100,69 @@ typedef struct scanner_info_t
 
 #define INT_USB 0
 #define INT_BJNP 1
+#define INT_CANON_HTTP 2
 
 static scanner_info_t *first_scanner = NULL;
 static pixma_io_t *first_io = NULL;
 static unsigned nscanners;
+
+#if HAVE_LIBCURL
+static size_t
+canon_http_write_cb (void *ptr, size_t size, size_t nmemb, void *userdata)
+{
+  pixma_io_t *io = userdata;
+  size_t len = size * nmemb;
+  unsigned char *data = realloc (io->http_data, io->http_len + len);
+  if (data == NULL)
+    return 0;
+  io->http_data = data;
+  memcpy (io->http_data + io->http_len, ptr, len);
+  io->http_len += len;
+  return len;
+}
+
+static int
+canon_http_request (pixma_io_t *io, const void *body, size_t body_len,
+                    int get)
+{
+  CURLcode result;
+
+  free (io->http_data);
+  io->http_data = NULL;
+  io->http_len = io->http_pos = 0;
+  if (io->http_curl == NULL)
+    {
+      io->http_curl = curl_easy_init ();
+      if (io->http_curl == NULL)
+        return PIXMA_ENOMEM;
+      io->http_headers = curl_slist_append
+        (io->http_headers, "Content-Type: application/octet-stream");
+      io->http_headers = curl_slist_append
+        (io->http_headers, "X-CHMP-Version: 1.0.0");
+    }
+  curl_easy_setopt (io->http_curl, CURLOPT_URL, io->http_url);
+  curl_easy_setopt (io->http_curl, CURLOPT_HTTPHEADER, io->http_headers);
+  curl_easy_setopt (io->http_curl, CURLOPT_WRITEFUNCTION, canon_http_write_cb);
+  curl_easy_setopt (io->http_curl, CURLOPT_WRITEDATA, io);
+  curl_easy_setopt (io->http_curl, CURLOPT_CONNECTTIMEOUT_MS, 3000L);
+  curl_easy_setopt (io->http_curl, CURLOPT_TIMEOUT_MS, 30000L);
+  curl_easy_setopt (io->http_curl, CURLOPT_TCP_KEEPALIVE, 1L);
+  if (get)
+    {
+      curl_easy_setopt (io->http_curl, CURLOPT_POST, 0L);
+      curl_easy_setopt (io->http_curl, CURLOPT_HTTPGET, 1L);
+    }
+  else
+    {
+      curl_easy_setopt (io->http_curl, CURLOPT_HTTPGET, 0L);
+      curl_easy_setopt (io->http_curl, CURLOPT_POST, 1L);
+      curl_easy_setopt (io->http_curl, CURLOPT_POSTFIELDS, body);
+      curl_easy_setopt (io->http_curl, CURLOPT_POSTFIELDSIZE, (long) body_len);
+    }
+  result = curl_easy_perform (io->http_curl);
+  return result == CURLE_OK ? 0 : PIXMA_EIO;
+}
+#endif
 
 
 static scanner_info_t *
@@ -139,6 +216,204 @@ attach_bjnp (SANE_String_Const devname,
   nscanners++;
   return SANE_STATUS_GOOD;
 }
+
+static const pixma_config_t *
+find_network_config (const char *model,
+                     const pixma_config_t *const pixma_devices[])
+{
+  unsigned i;
+  const pixma_config_t *cfg, *best = NULL;
+  for (i = 0; pixma_devices[i] != NULL; i++)
+    for (cfg = pixma_devices[i]; cfg->name != NULL; cfg++)
+      if (strcasestr (model, cfg->model) != NULL)
+        if (best == NULL || strlen (cfg->model) > strlen (best->model))
+          best = cfg;
+  return best;
+}
+
+static SANE_Status
+attach_canon_http (const char *address, const char *model,
+                   const char *serial,
+                   const pixma_config_t *const pixma_devices[])
+{
+  scanner_info_t *si;
+  const pixma_config_t *cfg = find_network_config (model, pixma_devices);
+  char devname[256];
+
+  if (cfg == NULL)
+    return SANE_STATUS_INVAL;
+  snprintf (devname, sizeof (devname), "canonhttp://%s", address);
+  si = calloc (1, sizeof (*si));
+  if (si == NULL)
+    return SANE_STATUS_NO_MEM;
+  si->devname = strdup (devname);
+  if (si->devname == NULL)
+    {
+      free (si);
+      return SANE_STATUS_NO_MEM;
+    }
+  si->cfg = cfg;
+  snprintf (si->serial, sizeof (si->serial), "%s_%s", cfg->model, serial);
+  si->interface = INT_CANON_HTTP;
+  si->next = first_scanner;
+  first_scanner = si;
+  nscanners++;
+  return SANE_STATUS_GOOD;
+}
+
+#if HAVE_LIBSNMP
+typedef struct
+{
+  const pixma_config_t *const *pixma_devices;
+} canon_snmp_context_t;
+
+static int
+canon_snmp_callback (int operation, netsnmp_session *session, int reqid,
+                     netsnmp_pdu *pdu, void *magic)
+{
+  canon_snmp_context_t *context = magic;
+  netsnmp_variable_list *var;
+  oid model_oid[MAX_OID_LEN];
+  oid id_oid[MAX_OID_LEN];
+  size_t model_oid_len = MAX_OID_LEN;
+  size_t id_oid_len = MAX_OID_LEN;
+  char model[128] = "";
+  char address[INET_ADDRSTRLEN] = "";
+  char serial[64] = "snmp";
+  netsnmp_indexed_addr_pair *peer;
+  struct sockaddr_in *remote;
+
+  UNUSED (session);
+  UNUSED (reqid);
+  if (operation != NETSNMP_CALLBACK_OP_RECEIVED_MESSAGE || pdu == NULL ||
+      !read_objid (".1.3.6.1.4.1.1602.1.1.1.1.0", model_oid,
+                   &model_oid_len) ||
+      !read_objid (".1.3.6.1.4.1.2699.1.2.1.2.1.1.3.1", id_oid,
+                   &id_oid_len))
+    return 1;
+  for (var = pdu->variables; var != NULL; var = var->next_variable)
+    if (var->type == ASN_OCTET_STR && var->val.string != NULL)
+      {
+        char value[128];
+        size_t len = var->val_len < sizeof (value) - 1
+                   ? var->val_len : sizeof (value) - 1;
+        memcpy (value, var->val.string, len);
+        value[len] = '\0';
+        if (snmp_oid_compare (var->name, var->name_length,
+                              model_oid, model_oid_len) == 0)
+          snprintf (model, sizeof (model), "%s", value);
+        else if (strstr (value, "MDL:") != NULL)
+          {
+            const char *model_start = strstr (value, "MDL:") + 4;
+            const char *model_end = strchr (model_start, ';');
+            size_t model_len = model_end != NULL
+                             ? (size_t) (model_end - model_start)
+                             : strlen (model_start);
+            if (model_len >= sizeof (model))
+              model_len = sizeof (model) - 1;
+            memcpy (model, model_start, model_len);
+            model[model_len] = '\0';
+          }
+        else if (model[0] == '\0')
+          snprintf (model, sizeof (model), "%s", value);
+      }
+  peer = pdu->transport_data;
+  if (peer == NULL || pdu->transport_data_length != sizeof (*peer))
+    return 1;
+  remote = (struct sockaddr_in *) &peer->remote_addr;
+  if (remote->sin_family != AF_INET)
+    return 1;
+  inet_ntop (AF_INET, &remote->sin_addr, address, sizeof (address));
+  if (model[0] != '\0' && address[0] != '\0')
+    {
+      PDBG (pixma_dbg (3, "SNMP found Canon %s at %s\n", model, address));
+      attach_canon_http (address, model, serial, context->pixma_devices);
+    }
+  return 1;
+}
+
+static void
+canon_snmp_discover (const pixma_config_t *const pixma_devices[])
+{
+  netsnmp_session session, *ss;
+  netsnmp_pdu *request = NULL;
+  static const char *const discovery_oids[] = {
+    ".1.3.6.1.4.1.1602.1.3.1.13.0",
+    ".1.3.6.1.4.1.1602.1.2.1.8.1.3.1.1",
+    ".1.3.6.1.4.1.1602.1.1.1.1.0",
+    ".1.3.6.1.4.1.1602.1.1.1.10.0",
+    ".1.3.6.1.4.1.1602.1.3.1.12.0"
+  };
+  oid parsed_oid[MAX_OID_LEN];
+  size_t parsed_oid_len;
+  unsigned oid_index;
+  canon_snmp_context_t context = { pixma_devices };
+  char *broadcast = (char *) "255.255.255.255";
+
+  PDBG (pixma_dbg (4, "starting Canon SNMP discovery\n"));
+
+  PDBG (pixma_dbg (4, "Canon SNMP broadcast target: %s\n", broadcast));
+
+  snmp_sess_init (&session);
+  session.version = SNMP_VERSION_1;
+  session.peername = broadcast;
+  session.community = (u_char *) "canon_admin";
+  session.community_len = strlen ((char *) session.community);
+  session.flags |= SNMP_FLAGS_UDP_BROADCAST;
+  session.callback = canon_snmp_callback;
+  session.callback_magic = &context;
+  SOCK_STARTUP;
+  ss = snmp_open (&session);
+  if (ss == NULL)
+    {
+      PDBG (pixma_dbg (2, "Canon SNMP session could not be opened\n"));
+      snmp_sess_perror ("canon SNMP", &session);
+      SOCK_CLEANUP;
+      return;
+    }
+  request = snmp_pdu_create (SNMP_MSG_GET);
+  for (oid_index = 0; oid_index < sizeof (discovery_oids) /
+                       sizeof (discovery_oids[0]); oid_index++)
+    {
+      parsed_oid_len = MAX_OID_LEN;
+      if (read_objid (discovery_oids[oid_index], parsed_oid,
+                      &parsed_oid_len))
+        snmp_add_null_var (request, parsed_oid, parsed_oid_len);
+    }
+  if (!snmp_send (ss, request))
+    {
+      snmp_free_pdu (request);
+      PDBG (pixma_dbg (2, "SNMP broadcast send failed\n"));
+    }
+  else
+    {
+      struct timeval timeout = { 0, 125000 };
+      struct timeval end;
+      fd_set fdset;
+      int fds, block;
+      gettimeofday (&end, NULL);
+      end.tv_sec += 2;
+      do
+        {
+          FD_ZERO (&fdset);
+          timeout.tv_sec = 0;
+          timeout.tv_usec = 125000;
+          fds = 0;
+          block = 0;
+          snmp_select_info (&fds, &fdset, &timeout, &block);
+          if (select (fds, &fdset, NULL, NULL, &timeout) > 0)
+            snmp_read (&fdset);
+          else
+            snmp_timeout ();
+          gettimeofday (&timeout, NULL);
+        }
+      while (timeout.tv_sec < end.tv_sec ||
+             (timeout.tv_sec == end.tv_sec && timeout.tv_usec < end.tv_usec));
+    }
+  snmp_close (ss);
+  SOCK_CLEANUP;
+}
+#endif
 
 static void
 clear_scanner_list (void)
@@ -287,6 +562,9 @@ pixma_io_init (void)
 {
   sanei_usb_init ();
   sanei_bjnp_init();
+#if HAVE_LIBCURL
+  curl_global_init (CURL_GLOBAL_DEFAULT);
+#endif
   nscanners = 0;
   return 0;
 }
@@ -297,6 +575,9 @@ pixma_io_cleanup (void)
   while (first_io)
     pixma_disconnect (first_io);
   clear_scanner_list ();
+#if HAVE_LIBCURL
+  curl_global_cleanup ();
+#endif
 }
 
 unsigned
@@ -327,7 +608,12 @@ pixma_collect_devices (const char **conf_devices,
         }
     }
   if (! local_only)
-    sanei_bjnp_find_devices(conf_devices, attach_bjnp, pixma_devices);
+    {
+      sanei_bjnp_find_devices(conf_devices, attach_bjnp, pixma_devices);
+#if HAVE_LIBSNMP
+      canon_snmp_discover (pixma_devices);
+#endif
+    }
 
   si = first_scanner;
   while (j < nscanners)
@@ -369,6 +655,15 @@ pixma_connect (unsigned devnr, pixma_io_t ** handle)
     return PIXMA_EINVAL;
   if (si-> interface == INT_BJNP)
     error = map_error (sanei_bjnp_open (si->devname, &dev));
+  else if (si->interface == INT_CANON_HTTP)
+    {
+#if HAVE_LIBCURL
+      dev = -1;
+      error = 0;
+#else
+      error = PIXMA_ENOTSUP;
+#endif
+    }
   else
     error = map_error (sanei_usb_open (si->devname, &dev));
 
@@ -379,7 +674,7 @@ pixma_connect (unsigned devnr, pixma_io_t ** handle)
     {
       if (si -> interface == INT_BJNP)
         sanei_bjnp_close (dev);
-      else
+      else if (si->interface != INT_CANON_HTTP)
         sanei_usb_close (dev);
       return PIXMA_ENOMEM;
     }
@@ -387,6 +682,18 @@ pixma_connect (unsigned devnr, pixma_io_t ** handle)
   first_io = io;
   io->dev = dev;
   io->interface = si->interface;
+#if HAVE_LIBCURL
+  if (io->interface == INT_CANON_HTTP)
+    {
+      const char *host = si->devname + strlen ("canonhttp://");
+      if (asprintf (&io->http_url,
+                    "http://%s/canon/ij/command2/port3", host) < 0)
+        {
+          free (io);
+          return PIXMA_ENOMEM;
+        }
+    }
+#endif
   *handle = io;
   return 0;
 }
@@ -407,8 +714,15 @@ pixma_disconnect (pixma_io_t * io)
     return;
   if (io-> interface == INT_BJNP)
     sanei_bjnp_close (io->dev);
-  else
+  else if (io->interface != INT_CANON_HTTP)
     sanei_usb_close (io->dev);
+#if HAVE_LIBCURL
+  if (io->http_curl != NULL)
+    curl_easy_cleanup (io->http_curl);
+  curl_slist_free_all (io->http_headers);
+  free (io->http_url);
+  free (io->http_data);
+#endif
   *p = io->next;
   free (io);
 }
@@ -420,6 +734,8 @@ int pixma_activate (pixma_io_t * io)
     {
       error = map_error(sanei_bjnp_activate (io->dev));
     }
+  else if (io->interface == INT_CANON_HTTP)
+    error = 0;
   else
     /* noop for USB interface */
     error = 0;
@@ -433,6 +749,8 @@ int pixma_deactivate (pixma_io_t * io)
     {
       error = map_error(sanei_bjnp_deactivate (io->dev));
     }
+  else if (io->interface == INT_CANON_HTTP)
+    error = 0;
   else
     /* noop for USB interface */
     error = 0;
@@ -458,6 +776,12 @@ pixma_write (pixma_io_t * io, const void *cmd, unsigned len)
     sanei_bjnp_set_timeout (io->dev, PIXMA_BULKOUT_TIMEOUT);
     error = map_error (sanei_bjnp_write_bulk (io->dev, cmd, &count));
     }
+  else if (io->interface == INT_CANON_HTTP)
+#if HAVE_LIBCURL
+    error = canon_http_request (io, cmd, len, 0);
+#else
+    error = PIXMA_ENOTSUP;
+#endif
   else
     {
 #ifdef HAVE_SANEI_USB_SET_TIMEOUT
@@ -489,6 +813,25 @@ pixma_read (pixma_io_t * io, void *buf, unsigned size)
     {
     sanei_bjnp_set_timeout (io->dev, PIXMA_BULKIN_TIMEOUT);
     error = map_error (sanei_bjnp_read_bulk (io->dev, buf, &count));
+    }
+  else if (io->interface == INT_CANON_HTTP)
+    {
+#if HAVE_LIBCURL
+      if (io->http_pos == io->http_len &&
+          canon_http_request (io, NULL, 0, 1) < 0)
+        error = PIXMA_EIO;
+      else
+        {
+          count = io->http_len - io->http_pos;
+          if (count > size)
+            count = size;
+          memcpy (buf, io->http_data + io->http_pos, count);
+          io->http_pos += count;
+          error = 0;
+        }
+#else
+      error = PIXMA_ENOTSUP;
+#endif
     }
   else
     {
@@ -522,6 +865,9 @@ pixma_wait_interrupt (pixma_io_t * io, void *buf, unsigned size, int timeout)
       sanei_bjnp_set_timeout (io->dev, timeout);
       error = map_error (sanei_bjnp_read_int (io->dev, buf, &count));
     }
+  else if (io->interface == INT_CANON_HTTP)
+    /* Canon's HTTP transport has no separate interrupt endpoint. */
+    error = PIXMA_ETIMEDOUT;
   else
     {
 #ifdef HAVE_SANEI_USB_SET_TIMEOUT
