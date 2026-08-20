@@ -238,6 +238,7 @@ SANE_Status escl_status(const ESCL_Device *device,
 capabilities_t *escl_capabilities(ESCL_Device *device,
                                   char *blacklist,
                                   SANE_Status *status);
+void escl_free_capabilities(capabilities_t *scanner);
 
 char *escl_newjob(capabilities_t *scanner,
                   const ESCL_Device *device,
