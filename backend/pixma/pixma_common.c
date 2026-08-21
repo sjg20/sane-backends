@@ -79,15 +79,6 @@ extern int pixma_custom_mp150_devices_count;
 extern pixma_config_t *pixma_custom_iclass_devices;
 extern int pixma_custom_iclass_devices_count;
 
-static const pixma_config_t *const pixma_devices[] = {
-  pixma_mp150_devices,
-  pixma_mp750_devices,
-  pixma_mp730_devices,
-  pixma_mp800_devices,
-  pixma_iclass_devices,
-  NULL
-};
-
 static pixma_t *first_pixma = NULL;
 static time_t tstart_sec = 0;
 static uint32_t tstart_usec = 0;
@@ -1227,26 +1218,33 @@ pixma_fill_gamma_table (double gamma, uint8_t * table, unsigned n)
 int
 pixma_find_scanners (const char **conf_devices, SANE_Bool local_only)
 {
-  if (pixma_custom_mp150_devices_count > 0 || pixma_custom_iclass_devices_count > 0) {
-      int i = 0;
-      const pixma_config_t **pixma_devices_all = (const pixma_config_t **)calloc(8, sizeof(pixma_config_t *));
-      for (i = 0; i < 6; i++)
-           pixma_devices_all[i] = pixma_devices[i];
-      i = 5;
-      if (pixma_custom_mp150_devices_count > 0) {
-          pixma_devices_all[i] = pixma_custom_mp150_devices;
-          i++;
-          pixma_devices_all[i] = NULL;
-          PDBG (pixma_dbg (3, "Add custom devices mp150 in pixma_devices\n"));
-      }
-      if (pixma_custom_iclass_devices_count > 0) {
-          pixma_devices_all[i] = pixma_custom_iclass_devices;
-          i++;
-          pixma_devices_all[i] = NULL;
-          PDBG (pixma_dbg (3, "Add custom devices iclass in pixma_devices\n"));
-      }
-      return pixma_collect_devices (conf_devices, pixma_devices_all, local_only);
+  const pixma_config_t *pixma_devices[] = {
+    pixma_mp150_devices,
+    pixma_mp750_devices,
+    pixma_mp730_devices,
+    pixma_mp800_devices,
+    pixma_iclass_devices,
+    NULL,       // space for custom configured devices
+    NULL,       // space for custom configured devices
+    NULL
   };
+
+  /*
+   * Add to list any custom configured devices.
+   *
+   */
+  size_t spare_pos = 5; // first free slot.
+
+  if (pixma_custom_mp150_devices_count > 0)
+    {
+      pixma_devices[spare_pos++] = pixma_custom_mp150_devices;
+    }
+
+  if (pixma_custom_iclass_devices_count > 0)
+    {
+      pixma_devices[spare_pos++] = pixma_custom_iclass_devices;
+    }
+
   return pixma_collect_devices (conf_devices, pixma_devices, local_only);
 }
 
