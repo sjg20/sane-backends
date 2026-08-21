@@ -62,6 +62,91 @@ static ESCL_Device *list_devices_primary = NULL;
 static int num_devices = 0;
 static SANE_Bool disable_https = SANE_FALSE;
 
+static void
+escl_free_addresses(ESCL_Address *address)
+{
+    while (address) {
+        ESCL_Address *next = address->next;
+        free(address->ip_address);
+        free(address->type);
+        free(address);
+        address = next;
+    }
+}
+
+static SANE_Status
+escl_add_address(ESCL_Device *device,
+                 const char *ip_address,
+                 int port_nb,
+                 const char *type,
+                 int tls,
+                 SANE_Bool https)
+{
+    ESCL_Address *address;
+    for (address = device->addresses; address; address = address->next) {
+        if (address->port_nb == port_nb &&
+            !strcmp(address->ip_address, ip_address) &&
+            !strcmp(address->type, type))
+            return SANE_STATUS_GOOD;
+    }
+    address = calloc(1, sizeof(*address));
+    if (!address)
+        return SANE_STATUS_NO_MEM;
+    address->ip_address = strdup(ip_address);
+    address->type = strdup(type);
+    if (!address->ip_address || !address->type) {
+        free(address->ip_address);
+        free(address->type);
+        free(address);
+        return SANE_STATUS_NO_MEM;
+    }
+    address->port_nb = port_nb;
+    address->tls = tls;
+    address->https = https;
+    address->next = device->addresses;
+    device->addresses = address;
+    return SANE_STATUS_GOOD;
+}
+
+static SANE_Status
+escl_copy_addresses(ESCL_Device *destination, const ESCL_Device *source)
+{
+    ESCL_Address *address;
+    for (address = source->addresses; address; address = address->next) {
+        SANE_Status status = escl_add_address(destination,
+                                              address->ip_address,
+                                              address->port_nb,
+                                              address->type,
+                                              address->tls,
+                                              address->https);
+        if (status != SANE_STATUS_GOOD)
+            return status;
+    }
+    return SANE_STATUS_GOOD;
+}
+
+static SANE_Bool
+escl_use_next_address(ESCL_Device *device)
+{
+    ESCL_Address *address = device->addresses;
+    char *ip_address;
+    char *type;
+    if (!address)
+        return SANE_FALSE;
+    device->addresses = address->next;
+    ip_address = device->ip_address;
+    type = device->type;
+    device->ip_address = address->ip_address;
+    device->type = address->type;
+    device->port_nb = address->port_nb;
+    device->tls = address->tls;
+    device->https = address->https;
+    free(ip_address);
+    free(type);
+    free(address);
+    return SANE_TRUE;
+}
+
 
 typedef struct Handled {
     struct Handled *next;
@@ -98,6 +183,7 @@ escl_free_device(ESCL_Device *current)
     free((void*)current->uuid);
     free((void*)current->version);
     free((void*)current->unix_socket);
+    escl_free_addresses(current->addresses);
     curl_slist_free_all(current->hack);
     free(current);
     return NULL;
@@ -281,6 +367,18 @@ escl_device_add(int port_nb,
 	if ((strcmp(current->ip_address, ip_address) == 0) ||
             (uuid && current->uuid && !strcmp(current->uuid, uuid)))
            {
+	       if (strcmp(current->ip_address, ip_address) != 0 ||
+           current->port_nb != port_nb || strcmp(current->type, type) != 0) {
+          SANE_Bool address_https = !strcmp(type, "_uscans._tcp") ||
+                                    !strcmp(type, "https");
+          SANE_Status address_status = escl_add_address(current, ip_address,
+                                                         port_nb, type,
+                                                         tls_version,
+                                                         address_https);
+          if (address_status != SANE_STATUS_GOOD)
+             return address_status;
+          return SANE_STATUS_GOOD;
+       }
 	      if (strcmp(current->type, type))
                 {
                   if(!strcmp(type, "_uscans._tcp") ||
@@ -1211,14 +1309,6 @@ _get_hack(SANE_String_Const name, ESCL_Device *device)
   FILE *fp;
   SANE_Char line[PATH_MAX];
   DBG (3, "_get_hack: start\n");
-  if (device->model_name &&
-      (strcasestr(device->model_name, "LaserJet FlowMFP M578") ||
-       strcasestr(device->model_name, "LaserJet MFP M630"))) {
-       device->hack = curl_slist_append(NULL, "Host: localhost");
-       DBG (3, "_get_hack: finish\n");
-       return;
-  }
-
   /* open configuration file */
   fp = sanei_config_open (ESCL_CONFIG_FILE);
   if (!fp)
@@ -1236,11 +1326,8 @@ _get_hack(SANE_String_Const name, ESCL_Device *device)
     {
        if (strstr(line, name)) {
           DBG (3, "_get_hack: idevice found\n");
-	  if (strstr(line, "hack=localhost")) {
-              DBG (3, "_get_hack: device found\n");
-	      device->hack = curl_slist_append(NULL, "Host: localhost");
-	  }
-	  goto finish_hack;
+	  escl_hack_apply_config(device, line);
+          goto finish_hack;
        }
     }
 finish_hack:
@@ -1312,6 +1399,7 @@ sane_open(SANE_String_Const name, SANE_Handle *h)
         escl_free_device(device);
         return status;
     }
+    _get_hack(name, device);
 
     handler = (escl_sane_t *)calloc(1, sizeof(escl_sane_t));
     if (handler == NULL) {
@@ -1319,15 +1407,30 @@ sane_open(SANE_String_Const name, SANE_Handle *h)
         return (SANE_STATUS_NO_MEM);
     }
     handler->device = device;  // Handler owns device now.
+    for (ESCL_Device *known = list_devices_primary; known; known = known->next) {
+        if (known->port_nb == device->port_nb &&
+            !strcmp(known->ip_address, device->ip_address) &&
+            !strcmp(known->type, device->type)) {
+            status = escl_copy_addresses(device, known);
+            if (status != SANE_STATUS_GOOD) {
+                escl_free_handler(handler);
+                return status;
+            }
+            break;
+        }
+    }
     blacklist = _get_blacklist_pdf();
-    handler->scanner = escl_capabilities(device, blacklist, &status);
+    do {
+        handler->scanner = escl_capabilities(device, blacklist, &status);
+        if (status == SANE_STATUS_GOOD || !escl_use_next_address(device))
+            break;
+        DBG(10, "Retrying eSCL device with an alternate address\n");
+    } while (1);
     free(blacklist);
     if (status != SANE_STATUS_GOOD) {
         escl_free_handler(handler);
         return (status);
     }
-    _get_hack(name, device);
-
     status = init_options(NULL, handler);
     if (status != SANE_STATUS_GOOD) {
         escl_free_handler(handler);

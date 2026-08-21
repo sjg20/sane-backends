@@ -52,9 +52,8 @@ escl_delete(const ESCL_Device *device, char *uri)
         return;
     if (!device || !uri)
         return;
-    curl_handle = curl_easy_init();
+    curl_handle = escl_curl_init(device, uri);
     if (curl_handle != NULL) {
-        escl_curl_url(curl_handle, device, uri);
 	 curl_easy_setopt(curl_handle, CURLOPT_CUSTOMREQUEST, "DELETE");
         CURLcode result = curl_easy_perform(curl_handle);
         (void)escl_curl_status(curl_handle, result);
@@ -79,16 +78,13 @@ escl_scanner(const ESCL_Device *device, char *scanJob, char *result,  SANE_Bool 
     if (device == NULL || result == NULL)
         return;
 CURL_CALL:
-    curl_handle = curl_easy_init();
+    snprintf(scan_cmd, sizeof(scan_cmd), "%s%s%s%s",
+             scan_jobs, scanJob, result, scanner_start);
+    curl_handle = escl_curl_init(device, scan_cmd);
     if (!curl_handle)
         return;
     if (curl_handle != NULL) {
-        snprintf(scan_cmd, sizeof(scan_cmd), "%s%s%s%s",
-                 scan_jobs, scanJob, result, scanner_start);
-        escl_curl_url(curl_handle, device, scan_cmd);
         curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, write_callback);
-        curl_easy_setopt(curl_handle, CURLOPT_FOLLOWLOCATION, 1L);
-        curl_easy_setopt(curl_handle, CURLOPT_MAXREDIRS, 3L);
         CURLcode result = curl_easy_perform(curl_handle);
         if (escl_curl_status(curl_handle, result) == SANE_STATUS_GOOD) {
             i++;

@@ -89,6 +89,15 @@ typedef struct {
 } ESCL_SCANOPTS;
 
 
+typedef struct ESCL_Address {
+    struct ESCL_Address *next;
+    char *ip_address;
+    int port_nb;
+    char *type;
+    int tls;
+    SANE_Bool https;
+} ESCL_Address;
+
 typedef struct ESCL_Device {
     struct ESCL_Device *next;
 
@@ -103,6 +112,11 @@ typedef struct ESCL_Device {
     SANE_Bool https;
     struct curl_slist *hack;
     char     *unix_socket;
+    ESCL_Address *addresses;
+    struct {
+        SANE_Bool host_localhost;
+        SANE_Bool disable_pdf;
+    } hacks;
 } ESCL_Device;
 
 typedef struct capst
@@ -264,8 +278,17 @@ typedef void CURL;
 void escl_curl_url(CURL *handle,
                    const ESCL_Device *device,
                    SANE_String_Const path);
+CURL *escl_curl_init(const ESCL_Device *device,
+                    SANE_String_Const path);
 SANE_Status escl_curl_status(CURL *handle, CURLcode result);
 SANE_Status escl_http_status(long response);
+SANE_Bool escl_curl_retry(SANE_Status status,
+                          int attempt,
+                          int max_attempts);
+void escl_hack_apply(ESCL_Device *device,
+                     SANE_String_Const server);
+void escl_hack_apply_config(ESCL_Device *device,
+                            SANE_String_Const line);
 
 unsigned char *escl_crop_surface(capabilities_t *scanner,
                                  unsigned char *surface,

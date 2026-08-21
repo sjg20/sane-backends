@@ -632,18 +632,15 @@ escl_capabilities(ESCL_Device *device, char *blacklist, SANE_Status *status)
         goto clean_data;
     }
     header->size = 0;
-    curl_handle = curl_easy_init();
+    curl_handle = escl_curl_init(device, scanner_capabilities);
     if (!curl_handle) {
         *status = SANE_STATUS_NO_MEM;
         goto clean_data;
     }
-    escl_curl_url(curl_handle, device, scanner_capabilities);
     curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, memory_callback_c);
     curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, (void *)var);
     curl_easy_setopt(curl_handle, CURLOPT_HEADERFUNCTION, header_callback);
     curl_easy_setopt(curl_handle, CURLOPT_HEADERDATA, (void *)header);
-    curl_easy_setopt(curl_handle, CURLOPT_FOLLOWLOCATION, 1L);
-    curl_easy_setopt(curl_handle, CURLOPT_MAXREDIRS, 3L);
     CURLcode res = curl_easy_perform(curl_handle);
     *status = escl_curl_status(curl_handle, res);
     if (*status == SANE_STATUS_GOOD)
@@ -663,12 +660,6 @@ escl_capabilities(ESCL_Device *device, char *blacklist, SANE_Status *status)
         goto clean;
     }
 
-    if (device->hack &&
-        header &&
-        header->memory &&
-        strstr(header->memory, "Server: HP_Compact_Server"))
-        device->hack = curl_slist_append(NULL, "Host: localhost");
-
     scanner->source = 0;
     scanner->Sources = (SANE_String_Const *)calloc(4, sizeof(SANE_String_Const));
     if (!scanner->Sources) {
@@ -676,9 +667,10 @@ escl_capabilities(ESCL_Device *device, char *blacklist, SANE_Status *status)
         goto clean;
     }
     print_xml_c(node, device, scanner, -1);
+    escl_hack_apply(device, header->memory);
     DBG (3, "1-blacklist_pdf: %s\n", (use_pdf ? "TRUE" : "FALSE") );
     if (device->model_name != NULL) {
-        if (strcasestr(device->model_name, "MFC-J985DW")) {
+        if (device->hacks.disable_pdf) {
            DBG (3, "blacklist_pdf: device not support PDF\n");
            use_pdf = SANE_FALSE;
         }

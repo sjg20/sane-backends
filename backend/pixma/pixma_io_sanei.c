@@ -46,7 +46,13 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <limits.h>		/* INT_MAX */
+#ifdef HAVE_SYS_SOCKET_H
+#include <sys/socket.h>
+#endif
+#ifdef HAVE_NETINET_IN_H
+#include <netinet/in.h>
 #include <arpa/inet.h>
+#endif
 
 #if HAVE_LIBCURL
 #include <curl/curl.h>
@@ -101,6 +107,7 @@ typedef struct scanner_info_t
 #define INT_USB 0
 #define INT_BJNP 1
 #define INT_CANON_HTTP 2
+#define CANON_SNMP_DISCOVERY_TIMEOUT_MS 500
 
 static scanner_info_t *first_scanner = NULL;
 static pixma_io_t *first_io = NULL;
@@ -126,6 +133,7 @@ canon_http_request (pixma_io_t *io, const void *body, size_t body_len,
                     int get)
 {
   CURLcode result;
+  long response_code;
 
   free (io->http_data);
   io->http_data = NULL;
@@ -160,7 +168,12 @@ canon_http_request (pixma_io_t *io, const void *body, size_t body_len,
       curl_easy_setopt (io->http_curl, CURLOPT_POSTFIELDSIZE, (long) body_len);
     }
   result = curl_easy_perform (io->http_curl);
-  return result == CURLE_OK ? 0 : PIXMA_EIO;
+  if (result != CURLE_OK ||
+      curl_easy_getinfo (io->http_curl, CURLINFO_RESPONSE_CODE,
+                         &response_code) != CURLE_OK ||
+      response_code < 200 || response_code >= 300)
+    return PIXMA_EIO;
+  return 0;
 }
 #endif
 
@@ -231,6 +244,30 @@ find_network_config (const char *model,
   return best;
 }
 
+static int
+network_scanner_exists (const char *address)
+{
+  scanner_info_t *si;
+  char canon_name[INET_ADDRSTRLEN + sizeof ("canonhttp://")];
+  const char *bjnp_prefix = "bjnp://";
+  size_t bjnp_prefix_len = strlen (bjnp_prefix);
+  size_t address_len = strlen (address);
+
+  snprintf (canon_name, sizeof (canon_name), "canonhttp://%s", address);
+  for (si = first_scanner; si != NULL; si = si->next)
+    {
+      if (strcmp (si->devname, canon_name) == 0)
+        return 1;
+      if (strncmp (si->devname, bjnp_prefix, bjnp_prefix_len) == 0 &&
+          strlen (si->devname) > bjnp_prefix_len + address_len &&
+          strncmp (si->devname + bjnp_prefix_len, address,
+                   address_len) == 0 &&
+          si->devname[bjnp_prefix_len + address_len] == ':')
+        return 1;
+    }
+  return 0;
+}
+
 static SANE_Status
 attach_canon_http (const char *address, const char *model,
                    const char *serial,
@@ -242,6 +279,8 @@ attach_canon_http (const char *address, const char *model,
 
   if (cfg == NULL)
     return SANE_STATUS_INVAL;
+  if (network_scanner_exists (address))
+    return SANE_STATUS_GOOD;
   snprintf (devname, sizeof (devname), "canonhttp://%s", address);
   si = calloc (1, sizeof (*si));
   if (si == NULL)
@@ -275,11 +314,14 @@ canon_snmp_callback (int operation, netsnmp_session *session, int reqid,
   netsnmp_variable_list *var;
   oid model_oid[MAX_OID_LEN];
   oid id_oid[MAX_OID_LEN];
+  oid mac_oid[MAX_OID_LEN];
   size_t model_oid_len = MAX_OID_LEN;
   size_t id_oid_len = MAX_OID_LEN;
+  size_t mac_oid_len = MAX_OID_LEN;
   char model[128] = "";
   char address[INET_ADDRSTRLEN] = "";
   char serial[64] = "snmp";
+  char mac[18] = "";
   netsnmp_indexed_addr_pair *peer;
   struct sockaddr_in *remote;
 
@@ -289,7 +331,9 @@ canon_snmp_callback (int operation, netsnmp_session *session, int reqid,
       !read_objid (".1.3.6.1.4.1.1602.1.1.1.1.0", model_oid,
                    &model_oid_len) ||
       !read_objid (".1.3.6.1.4.1.2699.1.2.1.2.1.1.3.1", id_oid,
-                   &id_oid_len))
+                   &id_oid_len) ||
+      !read_objid (".1.3.6.1.4.1.1602.1.3.1.13.0", mac_oid,
+                   &mac_oid_len))
     return 1;
   for (var = pdu->variables; var != NULL; var = var->next_variable)
     if (var->type == ASN_OCTET_STR && var->val.string != NULL)
@@ -302,7 +346,24 @@ canon_snmp_callback (int operation, netsnmp_session *session, int reqid,
         if (snmp_oid_compare (var->name, var->name_length,
                               model_oid, model_oid_len) == 0)
           snprintf (model, sizeof (model), "%s", value);
-        else if (strstr (value, "MDL:") != NULL)
+        else if (snmp_oid_compare (var->name, var->name_length,
+                                   mac_oid, mac_oid_len) == 0 &&
+                 var->val_len == 6)
+          snprintf (mac, sizeof (mac), "%02x%02x_%02x%02x_%02x%02x",
+                    var->val.string[0], var->val.string[1],
+                    var->val.string[2], var->val.string[3],
+                    var->val.string[4], var->val.string[5]);
+        else if (snmp_oid_compare (var->name, var->name_length,
+                                   id_oid, id_oid_len) == 0)
+          {
+            size_t serial_len = strlen (value);
+            if (serial_len >= sizeof (serial))
+              serial_len = sizeof (serial) - 1;
+            memcpy (serial, value, serial_len);
+            serial[serial_len] = '\0';
+          }
+        else if (strstr (value, "MFG:Canon") != NULL &&
+                 strstr (value, "MDL:") != NULL)
           {
             const char *model_start = strstr (value, "MDL:") + 4;
             const char *model_end = strchr (model_start, ';');
@@ -314,9 +375,9 @@ canon_snmp_callback (int operation, netsnmp_session *session, int reqid,
             memcpy (model, model_start, model_len);
             model[model_len] = '\0';
           }
-        else if (model[0] == '\0')
-          snprintf (model, sizeof (model), "%s", value);
       }
+  if (mac[0] != '\0')
+    snprintf (serial, sizeof (serial), "%s", mac);
   peer = pdu->transport_data;
   if (peer == NULL || pdu->transport_data_length != sizeof (*peer))
     return 1;
@@ -342,7 +403,8 @@ canon_snmp_discover (const pixma_config_t *const pixma_devices[])
     ".1.3.6.1.4.1.1602.1.2.1.8.1.3.1.1",
     ".1.3.6.1.4.1.1602.1.1.1.1.0",
     ".1.3.6.1.4.1.1602.1.1.1.10.0",
-    ".1.3.6.1.4.1.1602.1.3.1.12.0"
+    ".1.3.6.1.4.1.1602.1.3.1.12.0",
+    ".1.3.6.1.4.1.2699.1.2.1.2.1.1.3.1"
   };
   oid parsed_oid[MAX_OID_LEN];
   size_t parsed_oid_len;
@@ -392,7 +454,13 @@ canon_snmp_discover (const pixma_config_t *const pixma_devices[])
       fd_set fdset;
       int fds, block;
       gettimeofday (&end, NULL);
-      end.tv_sec += 2;
+      end.tv_sec += CANON_SNMP_DISCOVERY_TIMEOUT_MS / 1000;
+      end.tv_usec += (CANON_SNMP_DISCOVERY_TIMEOUT_MS % 1000) * 1000;
+      if (end.tv_usec >= 1000000)
+        {
+          end.tv_sec++;
+          end.tv_usec -= 1000000;
+        }
       do
         {
           FD_ZERO (&fdset);
@@ -678,8 +746,6 @@ pixma_connect (unsigned devnr, pixma_io_t ** handle)
         sanei_usb_close (dev);
       return PIXMA_ENOMEM;
     }
-  io->next = first_io;
-  first_io = io;
   io->dev = dev;
   io->interface = si->interface;
 #if HAVE_LIBCURL
@@ -694,6 +760,8 @@ pixma_connect (unsigned devnr, pixma_io_t ** handle)
         }
     }
 #endif
+  io->next = first_io;
+  first_io = io;
   *handle = io;
   return 0;
 }

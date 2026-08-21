@@ -75,6 +75,20 @@ Disable discovery of devices advertised through the HTTPS
 service. HTTP discovery through
 .B _uscan._tcp
 and devices explicitly listed in the configuration file remain available.
+.TP
+.B device URL "Model" "hack=host-localhost,hack=disable-pdf"
+Apply model-specific compatibility hacks to a manually configured device.
+The
+.B hack=host-localhost
+hack sends a
+.B Host: localhost
+HTTP header. The
+.B hack=disable-pdf
+hack disables PDF output for devices that advertise PDF incorrectly.
+The historical
+.B hack=localhost
+setting remains supported as an alias for
+.B hack=host-localhost.
 
 .SH FILES
 .TP
