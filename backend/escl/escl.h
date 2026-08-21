@@ -89,6 +89,15 @@ typedef struct {
 } ESCL_SCANOPTS;
 
 
+typedef struct ESCL_Address {
+    struct ESCL_Address *next;
+    char *ip_address;
+    int port_nb;
+    char *type;
+    int tls;
+    SANE_Bool https;
+} ESCL_Address;
+
 typedef struct ESCL_Device {
     struct ESCL_Device *next;
 
@@ -103,6 +112,7 @@ typedef struct ESCL_Device {
     SANE_Bool https;
     struct curl_slist *hack;
     char     *unix_socket;
+    ESCL_Address *addresses;
     struct {
         SANE_Bool host_localhost;
         SANE_Bool disable_pdf;
