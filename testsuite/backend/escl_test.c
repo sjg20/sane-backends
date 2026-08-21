@@ -9,6 +9,7 @@
 
 #define DEBUG_DECLARE_ONLY
 #include "backend/escl/escl.h"
+#include "include/sane/saneopts.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -87,9 +88,121 @@ send_http_response(int fd, int status, const char *body)
     char response[256];
     int length = snprintf(response, sizeof(response),
                           "HTTP/1.1 %d Test\r\nContent-Length: %zu\r\n"
-                          "Connection: close\r\n\r\n%s",
-                          status, strlen(body), body);
+                          "Connection: close\r\n\r\n",
+                          status, strlen(body));
     send(fd, response, (size_t)length, 0);
+    send(fd, body, strlen(body), 0);
+}
+
+static void
+test_capabilities_setting_profiles(void)
+{
+    static const char capabilities[] =
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+        "<scan:ScannerCapabilities "
+        "xmlns:pwg=\"http://www.pwg.org/schemas/2010/12/sm\" "
+        "xmlns:scan=\"http://schemas.hp.com/imaging/escl/2011/05/03\">"
+        "<pwg:Version>2.1</pwg:Version>"
+        "<pwg:MakeAndModel>Test Scanner</pwg:MakeAndModel>"
+        "<scan:Platen><scan:PlatenInputCaps>"
+        "<scan:MinWidth>1</scan:MinWidth><scan:MaxWidth>2550</scan:MaxWidth>"
+        "<scan:MinHeight>1</scan:MinHeight><scan:MaxHeight>3508</scan:MaxHeight>"
+        "<scan:SettingProfiles><scan:SettingProfile>"
+        "<scan:ColorModes><scan:ColorMode>RGB24</scan:ColorMode>"
+        "<scan:ColorMode>Grayscale8</scan:ColorMode></scan:ColorModes>"
+        "<scan:DocumentFormats><pwg:DocumentFormat>image/jpeg</pwg:DocumentFormat>"
+        "<scan:DocumentFormatExt>image/png</scan:DocumentFormatExt>"
+        "</scan:DocumentFormats>"
+        "<scan:SupportedResolutions><scan:DiscreteResolutions>"
+        "<scan:DiscreteResolution><scan:XResolution>300</scan:XResolution>"
+        "<scan:YResolution>300</scan:YResolution></scan:DiscreteResolution>"
+        "<scan:DiscreteResolution><scan:XResolution>600</scan:XResolution>"
+        "<scan:YResolution>600</scan:YResolution></scan:DiscreteResolution>"
+        "</scan:DiscreteResolutions><scan:ResolutionRange>"
+        "<scan:XResolution><scan:Min>75</scan:Min><scan:Max>1200</scan:Max>"
+        "<scan:Step>1</scan:Step></scan:XResolution>"
+        "<scan:YResolution><scan:Min>75</scan:Min><scan:Max>1200</scan:Max>"
+        "<scan:Step>1</scan:Step></scan:YResolution>"
+        "</scan:ResolutionRange></scan:SupportedResolutions>"
+        "</scan:SettingProfile></scan:SettingProfiles>"
+        "<scan:SupportedIntents><scan:Intent>Document</scan:Intent>"
+        "<scan:Intent>Photo</scan:Intent></scan:SupportedIntents>"
+        "</scan:PlatenInputCaps></scan:Platen>"
+        "<scan:Adf><scan:AdfDuplexInputCaps>"
+        "<scan:ColorModes><scan:ColorMode>Grayscale8</scan:ColorMode></scan:ColorModes>"
+        "<scan:DocumentFormats><pwg:DocumentFormat>image/jpeg</pwg:DocumentFormat>"
+        "</scan:DocumentFormats>"
+        "<scan:XResolution>300</scan:XResolution>"
+        "<scan:MinWidth>1</scan:MinWidth><scan:MaxWidth>2550</scan:MaxWidth>"
+        "<scan:MinHeight>1</scan:MinHeight><scan:MaxHeight>3508</scan:MaxHeight>"
+        "</scan:AdfDuplexInputCaps></scan:Adf></scan:ScannerCapabilities>";
+    ESCL_Device device = { 0 };
+    struct sockaddr_in address = { 0 };
+    char address_text[] = "127.0.0.1";
+    int server_fd, client_fd;
+    socklen_t address_size = sizeof(address);
+    pid_t child;
+    capabilities_t *scanner;
+    SANE_Status status;
+
+    server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (server_fd < 0) {
+        fprintf(stderr, "could not create capabilities test socket\n");
+        failures++;
+        return;
+    }
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    address.sin_port = 0;
+    if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0 ||
+        listen(server_fd, 1) < 0 ||
+        getsockname(server_fd, (struct sockaddr *)&address, &address_size) < 0) {
+        fprintf(stderr, "could not configure capabilities test socket\n");
+        close(server_fd);
+        failures++;
+        return;
+    }
+
+    child = fork();
+    if (child == 0) {
+        client_fd = accept(server_fd, NULL, NULL);
+        if (client_fd >= 0) {
+            char request[1024];
+            (void)recv(client_fd, request, sizeof(request), 0);
+            send_http_response(client_fd, 200, capabilities);
+            close(client_fd);
+        }
+        close(server_fd);
+        _exit(EXIT_SUCCESS);
+    }
+    if (child < 0) {
+        fprintf(stderr, "could not fork capabilities test server\n");
+        close(server_fd);
+        failures++;
+        return;
+    }
+    close(server_fd);
+
+    device.ip_address = address_text;
+    device.port_nb = ntohs(address.sin_port);
+    scanner = escl_capabilities(&device, NULL, &status);
+    if (status != SANE_STATUS_GOOD || !scanner ||
+        !scanner->caps[PLATEN].ColorModes ||
+        scanner->caps[PLATEN].ColorModesSize != 2 ||
+        strcmp(scanner->caps[PLATEN].ColorModes[0], SANE_VALUE_SCAN_MODE_COLOR) != 0 ||
+        strcmp(scanner->caps[PLATEN].ColorModes[1], SANE_VALUE_SCAN_MODE_GRAY) != 0 ||
+        scanner->caps[PLATEN].DocumentFormatsSize != 1 ||
+        scanner->caps[PLATEN].format_ext != 1 ||
+        scanner->caps[PLATEN].SupportedIntentsSize != 2 ||
+        scanner->caps[PLATEN].SupportedResolutionsSize != 3 ||
+        scanner->caps[PLATEN].SupportedResolutions[1] != 300 ||
+        scanner->caps[PLATEN].SupportedResolutions[2] != 600 ||
+        scanner->caps[ADFDUPLEX].duplex != 1) {
+        fprintf(stderr, "capabilities setting profiles returned unexpected values\n");
+        failures++;
+    }
+    escl_free_capabilities(scanner);
+    waitpid(child, NULL, 0);
 }
 
 static void
@@ -307,6 +420,7 @@ main(void)
 {
     test_http_status();
     test_disable_https_config_option();
+    test_capabilities_setting_profiles();
     test_scan_retry_replaces_response_body();
     test_scan_file_reset();
     test_crop_passthrough();
