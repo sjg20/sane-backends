@@ -328,6 +328,15 @@ canon_snmp_callback (int operation, netsnmp_session *session, int reqid,
         if (snmp_oid_compare (var->name, var->name_length,
                               model_oid, model_oid_len) == 0)
           snprintf (model, sizeof (model), "%s", value);
+        else if (snmp_oid_compare (var->name, var->name_length,
+                                   id_oid, id_oid_len) == 0)
+          {
+            size_t serial_len = strlen (value);
+            if (serial_len >= sizeof (serial))
+              serial_len = sizeof (serial) - 1;
+            memcpy (serial, value, serial_len);
+            serial[serial_len] = '\0';
+          }
         else if (strstr (value, "MFG:Canon") != NULL &&
                  strstr (value, "MDL:") != NULL)
           {
@@ -367,7 +376,8 @@ canon_snmp_discover (const pixma_config_t *const pixma_devices[])
     ".1.3.6.1.4.1.1602.1.2.1.8.1.3.1.1",
     ".1.3.6.1.4.1.1602.1.1.1.1.0",
     ".1.3.6.1.4.1.1602.1.1.1.10.0",
-    ".1.3.6.1.4.1.1602.1.3.1.12.0"
+    ".1.3.6.1.4.1.1602.1.3.1.12.0",
+    ".1.3.6.1.4.1.2699.1.2.1.2.1.1.3.1"
   };
   oid parsed_oid[MAX_OID_LEN];
   size_t parsed_oid_len;
