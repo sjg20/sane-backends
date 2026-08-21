@@ -101,6 +101,7 @@ typedef struct scanner_info_t
 #define INT_USB 0
 #define INT_BJNP 1
 #define INT_CANON_HTTP 2
+#define CANON_SNMP_DISCOVERY_TIMEOUT_MS 500
 
 static scanner_info_t *first_scanner = NULL;
 static pixma_io_t *first_io = NULL;
@@ -433,7 +434,13 @@ canon_snmp_discover (const pixma_config_t *const pixma_devices[])
       fd_set fdset;
       int fds, block;
       gettimeofday (&end, NULL);
-      end.tv_sec += 2;
+      end.tv_sec += CANON_SNMP_DISCOVERY_TIMEOUT_MS / 1000;
+      end.tv_usec += (CANON_SNMP_DISCOVERY_TIMEOUT_MS % 1000) * 1000;
+      if (end.tv_usec >= 1000000)
+        {
+          end.tv_sec++;
+          end.tv_usec -= 1000000;
+        }
       do
         {
           FD_ZERO (&fdset);
