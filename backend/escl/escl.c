@@ -1211,14 +1211,6 @@ _get_hack(SANE_String_Const name, ESCL_Device *device)
   FILE *fp;
   SANE_Char line[PATH_MAX];
   DBG (3, "_get_hack: start\n");
-  if (device->model_name &&
-      (strcasestr(device->model_name, "LaserJet FlowMFP M578") ||
-       strcasestr(device->model_name, "LaserJet MFP M630"))) {
-       device->hack = curl_slist_append(NULL, "Host: localhost");
-       DBG (3, "_get_hack: finish\n");
-       return;
-  }
-
   /* open configuration file */
   fp = sanei_config_open (ESCL_CONFIG_FILE);
   if (!fp)

@@ -83,6 +83,31 @@ test_disable_https_config_option(void)
 }
 
 static void
+test_model_hacks(void)
+{
+    ESCL_Device device = { 0 };
+
+    device.model_name = strdup("HP LaserJet MFP M630");
+    escl_hack_apply(&device, NULL);
+    if (!device.hacks.host_localhost || !device.hack ||
+        strcmp(device.hack->data, "Host: localhost") != 0) {
+        fprintf(stderr, "HP model hack was not applied\n");
+        failures++;
+    }
+    curl_slist_free_all(device.hack);
+    free(device.model_name);
+
+    memset(&device, 0, sizeof(device));
+    device.model_name = strdup("Brother MFC-J985DW");
+    escl_hack_apply(&device, NULL);
+    if (!device.hacks.disable_pdf) {
+        fprintf(stderr, "Brother PDF hack was not applied\n");
+        failures++;
+    }
+    free(device.model_name);
+}
+
+static void
 send_http_response(int fd, int status, const char *body)
 {
     char response[256];
@@ -420,6 +445,7 @@ main(void)
 {
     test_http_status();
     test_disable_https_config_option();
+    test_model_hacks();
     test_capabilities_setting_profiles();
     test_scan_retry_replaces_response_body();
     test_scan_file_reset();

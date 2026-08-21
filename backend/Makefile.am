@@ -625,6 +625,7 @@ libescl_la_SOURCES = escl/escl.c \
 	escl/escl_devices.c \
 	escl/escl_http.c \
 	escl/escl.h \
+	escl/escl_hack.c \
 	escl/escl_newjob.c \
 	escl/escl_reset.c \
 	escl/escl_scan.c \

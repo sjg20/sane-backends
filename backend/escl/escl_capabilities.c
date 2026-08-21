@@ -660,12 +660,6 @@ escl_capabilities(ESCL_Device *device, char *blacklist, SANE_Status *status)
         goto clean;
     }
 
-    if (device->hack &&
-        header &&
-        header->memory &&
-        strstr(header->memory, "Server: HP_Compact_Server"))
-        device->hack = curl_slist_append(NULL, "Host: localhost");
-
     scanner->source = 0;
     scanner->Sources = (SANE_String_Const *)calloc(4, sizeof(SANE_String_Const));
     if (!scanner->Sources) {
@@ -673,9 +667,10 @@ escl_capabilities(ESCL_Device *device, char *blacklist, SANE_Status *status)
         goto clean;
     }
     print_xml_c(node, device, scanner, -1);
+    escl_hack_apply(device, header->memory);
     DBG (3, "1-blacklist_pdf: %s\n", (use_pdf ? "TRUE" : "FALSE") );
     if (device->model_name != NULL) {
-        if (strcasestr(device->model_name, "MFC-J985DW")) {
+        if (device->hacks.disable_pdf) {
            DBG (3, "blacklist_pdf: device not support PDF\n");
            use_pdf = SANE_FALSE;
         }
