@@ -1025,7 +1025,12 @@ pixma_add_custom_iclass_device (const char *name,
    if (pixma_custom_iclass_devices_count == 0) {
       pixma_custom_iclass_devices = (pixma_config_t *)calloc (2, sizeof(pixma_config_t));
    } else {
-      pixma_custom_iclass_devices = realloc (pixma_custom_iclass_devices, sizeof(pixma_config_t) * (pixma_custom_iclass_devices_count + 2));
+      pixma_config_t *devices = realloc
+        (pixma_custom_iclass_devices,
+         sizeof(pixma_config_t) * (pixma_custom_iclass_devices_count + 2));
+      if (!devices)
+        return;
+      pixma_custom_iclass_devices = devices;
    }
 
    while (ccaps[lcaps] != NULL) {

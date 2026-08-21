@@ -1636,10 +1636,11 @@ mp150_fill_buffer (pixma_t * s, pixma_imagebuf_t * ib)
 
       line_size = get_cis_line_size (s);
       proc_buf_size = 2 * line_size;
-      mp->cb.buf = realloc (mp->cb.buf,
-             CMDBUF_SIZE + IMAGE_BLOCK_SIZE + proc_buf_size);
-      if (!mp->cb.buf)
+      uint8_t *buf = realloc (mp->cb.buf,
+                              CMDBUF_SIZE + IMAGE_BLOCK_SIZE + proc_buf_size);
+      if (!buf)
         return PIXMA_ENOMEM;
+      mp->cb.buf = buf;
       mp->linebuf = mp->cb.buf + CMDBUF_SIZE;
       mp->imgbuf = mp->data_left_ofs = mp->linebuf + line_size;
       mp->data_left_len = 0;
@@ -2088,7 +2089,12 @@ pixma_add_custom_mp150_device (const char *name,
    if (pixma_custom_mp150_devices_count == 0) {
       pixma_custom_mp150_devices = (pixma_config_t *)calloc (2, sizeof(pixma_config_t));
    } else {
-      pixma_custom_mp150_devices = realloc (pixma_custom_mp150_devices, sizeof(pixma_config_t) * (pixma_custom_mp150_devices_count + 2));
+      pixma_config_t *devices = realloc
+        (pixma_custom_mp150_devices,
+         sizeof(pixma_config_t) * (pixma_custom_mp150_devices_count + 2));
+      if (!devices)
+        return;
+      pixma_custom_mp150_devices = devices;
    }
 
    while (ccaps[lcaps] != NULL) {
