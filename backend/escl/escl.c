@@ -1471,6 +1471,9 @@ sane_cancel(SANE_Handle h)
     DBG (10, "escl sane_cancel\n");
     escl_sane_t *handler = h;
     escl_jpeg_stream_finish(handler->scanner);
+    escl_png_stream_finish(handler->scanner);
+    escl_tiff_stream_finish(handler->scanner);
+    escl_pdf_stream_finish(handler->scanner);
     if (handler->scanner->tmp)
     {
       fclose(handler->scanner->tmp);

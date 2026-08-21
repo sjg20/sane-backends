@@ -46,6 +46,7 @@ struct tiff_stream
     int y_off;
     int real_width;
     int real_height;
+    int samples;
     int line;
     size_t row_size;
     size_t row_pos;
@@ -58,6 +59,10 @@ tiff_stream_write(void *ptr, size_t size, size_t nmemb, void *data)
     struct tiff_stream *stream = data;
     size_t total = size * nmemb;
     pthread_mutex_lock(&stream->lock);
+    if (fseek(stream->file, 0, SEEK_END) != 0) {
+        pthread_mutex_unlock(&stream->lock);
+        return 0;
+    }
     size_t written = fwrite(ptr, 1, total, stream->file);
     if (written) {
         fflush(stream->file);
@@ -271,11 +276,15 @@ escl_tiff_stream_start(capabilities_t *scanner,
     if (stream->raw_size <= 0)
         goto error;
     tiff_stream_dimensions(stream, scanner);
+    if (stream->real_width <= 0 || stream->real_height <= 0)
+        goto unsupported;
+    stream->samples = samples;
     stream->raw = malloc((size_t)stream->raw_size);
     stream->row_size = (size_t)stream->real_width * 3;
     stream->row = malloc(stream->row_size);
     if (!stream->raw || !stream->row)
         goto error;
+    stream->row_pos = stream->row_size;
     scanner->tiff_stream = stream;
     *width = stream->real_width;
     *height = stream->real_height;
@@ -330,8 +339,14 @@ escl_tiff_stream_read(capabilities_t *scanner,
         if (stream->line >= stream->y_off &&
             stream->line < stream->y_off + stream->real_height) {
             for (int x = 0; x < stream->real_width; x++) {
-                size_t source = (size_t)(stream->x_off + x) * 3;
-                if (source + 2 < (size_t)stream->raw_size) {
+                size_t source = stream->samples == 1
+                    ? (size_t)(stream->x_off + x)
+                    : (size_t)(stream->x_off + x) * 3;
+                if (stream->samples == 1) {
+                    stream->row[x * 3] = stream->raw[source];
+                    stream->row[x * 3 + 1] = stream->raw[source];
+                    stream->row[x * 3 + 2] = stream->raw[source];
+                } else if (source + 2 < (size_t)stream->raw_size) {
                     stream->row[x * 3] = stream->raw[source];
                     stream->row[x * 3 + 1] = stream->raw[source + 1];
                     stream->row[x * 3 + 2] = stream->raw[source + 2];

@@ -76,11 +76,20 @@ stream_write_callback(void *ptr, size_t size, size_t nmemb, void *data)
     size_t written = 0;
 
     while (written < total) {
-        ssize_t count = write(stream->write_fd,
+        pthread_mutex_lock(&stream->lock);
+        int write_fd = stream->write_fd >= 0 ? dup(stream->write_fd) : -1;
+        pthread_mutex_unlock(&stream->lock);
+        if (write_fd < 0)
+            return written;
+        ssize_t count = write(write_fd,
                               (unsigned char *)ptr + written,
                               total - written);
         if (count <= 0)
+        {
+            close(write_fd);
             return written;
+        }
+        close(write_fd);
         written += (size_t)count;
         stream->real_read += (size_t)count;
     }
@@ -285,9 +294,10 @@ escl_jpeg_stream_start(capabilities_t *scanner,
     stream->bps = stream->cinfo.output_components;
     stream_dimensions(stream, scanner);
     stream->row_size = (size_t)stream->real_width * stream->bps;
-    stream->row = malloc(stream->row_size);
+    stream->row = stream->row_size ? malloc(stream->row_size) : NULL;
     if (!stream->row)
         goto error;
+    stream->row_pos = stream->row_size;
     jpeg_start_decompress(&stream->cinfo);
     stream->jpeg_started = SANE_TRUE;
     scanner->jpeg_stream = stream;
@@ -310,6 +320,8 @@ escl_jpeg_stream_read(capabilities_t *scanner,
     struct jpeg_stream *stream = scanner->jpeg_stream;
     *len = 0;
     if (!stream || maxlen <= 0)
+        return SANE_STATUS_INVAL;
+    if (setjmp(stream->jerr.escape))
         return SANE_STATUS_INVAL;
     while (*len < maxlen && !stream->eof) {
         if (stream->row_pos < stream->row_size) {

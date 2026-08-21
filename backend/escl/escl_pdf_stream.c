@@ -126,6 +126,12 @@ escl_pdf_stream_start(capabilities_t *scanner,
         goto error;
     stream->scale = scanner->caps[scanner->source].default_resolution / 72.0;
     pdf_stream_dimensions(stream, scanner);
+    if (stream->real_width <= 0 || stream->real_height <= 0) {
+        scanner->tmp = stream->file;
+        stream->file = NULL;
+        pdf_stream_free(stream);
+        return SANE_STATUS_UNSUPPORTED;
+    }
     stream->band_height = 64;
     stream->row_size = (size_t)stream->real_width * 3;
     stream->band_size = (size_t)stream->real_width * stream->band_height * 3;

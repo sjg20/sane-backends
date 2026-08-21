@@ -28,6 +28,7 @@ struct png_stream
     char *result;
     pthread_t thread;
     SANE_Bool thread_started;
+    pthread_mutex_t lock;
     int pipefd[2];
     int write_fd;
     FILE *input;
@@ -57,11 +58,20 @@ png_stream_write(void *ptr, size_t size, size_t nmemb, void *data)
     size_t written = 0;
 
     while (written < total) {
-        ssize_t count = write(stream->write_fd,
+        pthread_mutex_lock(&stream->lock);
+        int write_fd = stream->write_fd >= 0 ? dup(stream->write_fd) : -1;
+        pthread_mutex_unlock(&stream->lock);
+        if (write_fd < 0)
+            return written;
+        ssize_t count = write(write_fd,
                               (unsigned char *)ptr + written,
                               total - written);
         if (count <= 0)
+        {
+            close(write_fd);
             return written;
+        }
+        close(write_fd);
         written += (size_t)count;
         stream->real_read += (size_t)count;
     }
@@ -71,10 +81,12 @@ png_stream_write(void *ptr, size_t size, size_t nmemb, void *data)
 static void
 png_stream_close_write(struct png_stream *stream)
 {
+    pthread_mutex_lock(&stream->lock);
     if (stream->write_fd >= 0) {
         close(stream->write_fd);
         stream->write_fd = -1;
     }
+    pthread_mutex_unlock(&stream->lock);
 }
 
 static void *
@@ -168,6 +180,7 @@ escl_png_stream_start(capabilities_t *scanner,
     stream->pipefd[0] = -1;
     stream->pipefd[1] = -1;
     stream->write_fd = -1;
+    pthread_mutex_init(&stream->lock, NULL);
     if (pipe(stream->pipefd) != 0)
         goto error;
     stream->write_fd = stream->pipefd[1];
@@ -214,9 +227,10 @@ escl_png_stream_start(capabilities_t *scanner,
         goto error;
     png_stream_dimensions(stream, scanner);
     stream->row_size = (size_t)stream->real_width * 3;
-    stream->row = malloc(stream->row_size);
+    stream->row = stream->row_size ? malloc(stream->row_size) : NULL;
     if (!stream->row)
         goto error;
+    stream->row_pos = stream->row_size;
     scanner->png_stream = stream;
     *width = stream->real_width;
     *height = stream->real_height;
@@ -235,6 +249,7 @@ error:
     if (stream->pipefd[0] >= 0) close(stream->pipefd[0]);
     if (stream->pipefd[1] >= 0) close(stream->pipefd[1]);
     free(stream->row);
+    pthread_mutex_destroy(&stream->lock);
     free(stream);
     return SANE_STATUS_INVAL;
 }
@@ -271,8 +286,10 @@ escl_png_stream_read(capabilities_t *scanner,
             return SANE_STATUS_NO_MEM;
         png_read_row(stream->png_ptr, full, NULL);
         int line = stream->rows_read++;
-        if (line >= stream->y_off && line < stream->y_off + stream->real_height)
+        if (line >= stream->y_off && line < stream->y_off + stream->real_height) {
             memcpy(stream->row, full + (size_t)stream->x_off * 3, stream->row_size);
+            stream->row_pos = 0;
+        }
         free(full);
     }
     if (*len == 0 && stream->eof)
@@ -296,6 +313,7 @@ escl_png_stream_finish(capabilities_t *scanner)
         fclose(stream->input);
     if (stream->pipefd[0] >= 0) close(stream->pipefd[0]);
     free(stream->row);
+    pthread_mutex_destroy(&stream->lock);
     free(stream);
     scanner->png_stream = NULL;
 }
