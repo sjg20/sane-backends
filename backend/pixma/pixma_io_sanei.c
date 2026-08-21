@@ -678,8 +678,6 @@ pixma_connect (unsigned devnr, pixma_io_t ** handle)
         sanei_usb_close (dev);
       return PIXMA_ENOMEM;
     }
-  io->next = first_io;
-  first_io = io;
   io->dev = dev;
   io->interface = si->interface;
 #if HAVE_LIBCURL
@@ -694,6 +692,8 @@ pixma_connect (unsigned devnr, pixma_io_t ** handle)
         }
     }
 #endif
+  io->next = first_io;
+  first_io = io;
   *handle = io;
   return 0;
 }
