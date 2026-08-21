@@ -126,6 +126,7 @@ canon_http_request (pixma_io_t *io, const void *body, size_t body_len,
                     int get)
 {
   CURLcode result;
+  long response_code;
 
   free (io->http_data);
   io->http_data = NULL;
@@ -160,7 +161,12 @@ canon_http_request (pixma_io_t *io, const void *body, size_t body_len,
       curl_easy_setopt (io->http_curl, CURLOPT_POSTFIELDSIZE, (long) body_len);
     }
   result = curl_easy_perform (io->http_curl);
-  return result == CURLE_OK ? 0 : PIXMA_EIO;
+  if (result != CURLE_OK ||
+      curl_easy_getinfo (io->http_curl, CURLINFO_RESPONSE_CODE,
+                         &response_code) != CURLE_OK ||
+      response_code < 200 || response_code >= 300)
+    return PIXMA_EIO;
+  return 0;
 }
 #endif
 
