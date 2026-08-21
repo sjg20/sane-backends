@@ -1228,11 +1228,8 @@ _get_hack(SANE_String_Const name, ESCL_Device *device)
     {
        if (strstr(line, name)) {
           DBG (3, "_get_hack: idevice found\n");
-	  if (strstr(line, "hack=localhost")) {
-              DBG (3, "_get_hack: device found\n");
-	      device->hack = curl_slist_append(NULL, "Host: localhost");
-	  }
-	  goto finish_hack;
+	  escl_hack_apply_config(device, line);
+          goto finish_hack;
        }
     }
 finish_hack:
@@ -1304,6 +1301,7 @@ sane_open(SANE_String_Const name, SANE_Handle *h)
         escl_free_device(device);
         return status;
     }
+    _get_hack(name, device);
 
     handler = (escl_sane_t *)calloc(1, sizeof(escl_sane_t));
     if (handler == NULL) {
@@ -1318,8 +1316,6 @@ sane_open(SANE_String_Const name, SANE_Handle *h)
         escl_free_handler(handler);
         return (status);
     }
-    _get_hack(name, device);
-
     status = init_options(NULL, handler);
     if (status != SANE_STATUS_GOOD) {
         escl_free_handler(handler);

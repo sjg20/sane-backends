@@ -108,6 +108,22 @@ test_model_hacks(void)
 }
 
 static void
+test_configured_hacks(void)
+{
+    ESCL_Device device = { 0 };
+
+    escl_hack_apply_config(&device,
+                             "device http://127.0.0.1:8080 \"Test\" "
+                             "\"hack=host-localhost,hack=disable-pdf\"");
+    if (!device.hacks.host_localhost || !device.hacks.disable_pdf ||
+        !device.hack || strcmp(device.hack->data, "Host: localhost") != 0) {
+        fprintf(stderr, "configured eSCL hacks were not applied\n");
+        failures++;
+    }
+    curl_slist_free_all(device.hack);
+}
+
+static void
 send_http_response(int fd, int status, const char *body)
 {
     char response[256];
@@ -446,6 +462,7 @@ main(void)
     test_http_status();
     test_disable_https_config_option();
     test_model_hacks();
+    test_configured_hacks();
     test_capabilities_setting_profiles();
     test_scan_retry_replaces_response_body();
     test_scan_file_reset();

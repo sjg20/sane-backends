@@ -44,3 +44,19 @@ escl_hack_apply(ESCL_Device *device, SANE_String_Const server)
         strcasestr(device->model_name, "MFC-J985DW"))
         device->hacks.disable_pdf = SANE_TRUE;
 }
+
+void
+escl_hack_apply_config(ESCL_Device *device, SANE_String_Const line)
+{
+    if (!device || !line)
+        return;
+
+    if (strstr(line, "hack=localhost") ||
+        strstr(line, "hack=host-localhost")) {
+        device->hacks.host_localhost = SANE_TRUE;
+        if (!device->hack)
+            device->hack = curl_slist_append(NULL, "Host: localhost");
+    }
+    if (strstr(line, "hack=disable-pdf"))
+        device->hacks.disable_pdf = SANE_TRUE;
+}

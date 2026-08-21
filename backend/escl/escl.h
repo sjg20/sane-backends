@@ -277,6 +277,8 @@ SANE_Bool escl_curl_retry(SANE_Status status,
                           int max_attempts);
 void escl_hack_apply(ESCL_Device *device,
                      SANE_String_Const server);
+void escl_hack_apply_config(ESCL_Device *device,
+                            SANE_String_Const line);
 
 unsigned char *escl_crop_surface(capabilities_t *scanner,
                                  unsigned char *surface,
