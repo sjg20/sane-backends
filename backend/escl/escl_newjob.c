@@ -343,7 +343,7 @@ wake_up_device:
         return NULL;
     }
     download->size = 0;
-    curl_handle = curl_easy_init();
+    curl_handle = escl_curl_init(device, scan_jobs);
     if (!curl_handle) {
         *status = SANE_STATUS_NO_MEM;
         free(download->memory);
@@ -353,14 +353,11 @@ wake_up_device:
         return NULL;
     }
     if (curl_handle != NULL) {
-        escl_curl_url(curl_handle, device, scan_jobs);
         curl_easy_setopt(curl_handle, CURLOPT_POST, 1L);
         curl_easy_setopt(curl_handle, CURLOPT_POSTFIELDS, (const char*)upload->memory);
         curl_easy_setopt(curl_handle, CURLOPT_POSTFIELDSIZE, upload->size);
         curl_easy_setopt(curl_handle, CURLOPT_HEADERFUNCTION, download_callback);
         curl_easy_setopt(curl_handle, CURLOPT_HEADERDATA, (void *)download);
-        curl_easy_setopt(curl_handle, CURLOPT_FOLLOWLOCATION, 1L);
-        curl_easy_setopt(curl_handle, CURLOPT_MAXREDIRS, 3L);
         CURLcode res = curl_easy_perform(curl_handle);
         *status = escl_curl_status(curl_handle, res);
         if (*status != SANE_STATUS_GOOD) {
@@ -414,12 +411,12 @@ wake_up_device:
         }
         curl_easy_cleanup(curl_handle);
     }
-    if (wakup_count > 0 && wakup_count < 4) {
+    if (wakup_count > 0 && wakup_count < 4 &&
+        escl_curl_retry(*status, wakup_count - 1, 4)) {
         free(download->memory);
         download->memory = NULL;
         download->size = 0;
         *status = SANE_STATUS_GOOD;
-        usleep(250);
         goto wake_up_device;
     }
     if (upload != NULL) {

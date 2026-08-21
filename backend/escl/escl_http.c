@@ -15,6 +15,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <unistd.h>
+
+#define ESCL_MAX_REDIRECTS 3L
+#define ESCL_RETRY_TIMEOUT 1
 
 SANE_Bool
 escl_parse_disable_https(SANE_String_Const line, SANE_Bool *disable_https)
@@ -63,6 +67,8 @@ escl_curl_url(CURL *handle, const ESCL_Device *device, SANE_String_Const path)
     curl_easy_setopt(handle, CURLOPT_URL, url);
     curl_easy_setopt(handle, CURLOPT_CONNECTTIMEOUT, ESCL_CONNECT_TIMEOUT);
     curl_easy_setopt(handle, CURLOPT_TIMEOUT, ESCL_REQUEST_TIMEOUT);
+    curl_easy_setopt(handle, CURLOPT_FOLLOWLOCATION, 1L);
+    curl_easy_setopt(handle, CURLOPT_MAXREDIRS, ESCL_MAX_REDIRECTS);
     free(url);
     if (device->hack)
         curl_easy_setopt(handle, CURLOPT_HTTPHEADER, device->hack);
@@ -74,6 +80,16 @@ escl_curl_url(CURL *handle, const ESCL_Device *device, SANE_String_Const path)
     }
     if (device->unix_socket != NULL)
         curl_easy_setopt(handle, CURLOPT_UNIX_SOCKET_PATH, device->unix_socket);
+}
+
+CURL *
+escl_curl_init(const ESCL_Device *device, SANE_String_Const path)
+{
+    CURL *handle = curl_easy_init();
+
+    if (handle)
+        escl_curl_url(handle, device, path);
+    return handle;
 }
 
 SANE_Status
@@ -115,4 +131,15 @@ escl_curl_status(CURL *handle, CURLcode result)
     if (curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &response) != CURLE_OK)
         return SANE_STATUS_IO_ERROR;
     return escl_http_status(response);
+}
+
+SANE_Bool
+escl_curl_retry(SANE_Status status, int attempt, int max_attempts)
+{
+    if (status != SANE_STATUS_DEVICE_BUSY ||
+        attempt + 1 >= max_attempts)
+        return SANE_FALSE;
+
+    sleep(ESCL_RETRY_TIMEOUT);
+    return SANE_TRUE;
 }

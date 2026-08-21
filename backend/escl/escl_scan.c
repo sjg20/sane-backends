@@ -32,8 +32,6 @@
 #include <unistd.h>
 
 #define MAX_RETRIES 20
-#define RETRY_TIMEOUT 1
-
 /**
  * \fn static size_t write_callback(void *str, size_t size, size_t nmemb, void *userp)
  * \brief Callback function that writes the image scanned into the temporary file.
@@ -93,18 +91,14 @@ escl_scan(capabilities_t *scanner, const ESCL_Device *device, char *scanJob, cha
         scanner->tmp = NULL;
     }
 
-    curl_handle = curl_easy_init();
+    snprintf(scan_cmd, sizeof(scan_cmd), "%s%s%s%s",
+             scan_jobs, scanJob, result, scanner_start);
+    curl_handle = escl_curl_init(device, scan_cmd);
     if (!curl_handle) {
         status = SANE_STATUS_NO_MEM;
         goto cleanup;
     }
-
-    snprintf(scan_cmd, sizeof(scan_cmd), "%s%s%s%s",
-             scan_jobs, scanJob, result, scanner_start);
-    escl_curl_url(curl_handle, device, scan_cmd);
     curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, write_callback);
-    curl_easy_setopt(curl_handle, CURLOPT_FOLLOWLOCATION, 1L);
-    curl_easy_setopt(curl_handle, CURLOPT_MAXREDIRS, 3L);
     curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, scanner);
 
     for (int i = 0; i < MAX_RETRIES; i++) {
@@ -113,8 +107,7 @@ escl_scan(capabilities_t *scanner, const ESCL_Device *device, char *scanJob, cha
             goto cleanup;
         CURLcode res = curl_easy_perform(curl_handle);
         status = escl_curl_status(curl_handle, res);
-        if (status == SANE_STATUS_DEVICE_BUSY) {
-            sleep(RETRY_TIMEOUT);
+        if (escl_curl_retry(status, i, MAX_RETRIES)) {
             DBG(10, "Scanner busy: reattempting scan (%d/%d)\n",
                 i + 1, MAX_RETRIES);
         } else if (status != SANE_STATUS_GOOD) {

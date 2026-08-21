@@ -264,8 +264,13 @@ typedef void CURL;
 void escl_curl_url(CURL *handle,
                    const ESCL_Device *device,
                    SANE_String_Const path);
+CURL *escl_curl_init(const ESCL_Device *device,
+                    SANE_String_Const path);
 SANE_Status escl_curl_status(CURL *handle, CURLcode result);
 SANE_Status escl_http_status(long response);
+SANE_Bool escl_curl_retry(SANE_Status status,
+                          int attempt,
+                          int max_attempts);
 
 unsigned char *escl_crop_surface(capabilities_t *scanner,
                                  unsigned char *surface,
