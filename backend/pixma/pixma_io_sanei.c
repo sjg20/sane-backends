@@ -328,7 +328,8 @@ canon_snmp_callback (int operation, netsnmp_session *session, int reqid,
         if (snmp_oid_compare (var->name, var->name_length,
                               model_oid, model_oid_len) == 0)
           snprintf (model, sizeof (model), "%s", value);
-        else if (strstr (value, "MDL:") != NULL)
+        else if (strstr (value, "MFG:Canon") != NULL &&
+                 strstr (value, "MDL:") != NULL)
           {
             const char *model_start = strstr (value, "MDL:") + 4;
             const char *model_end = strchr (model_start, ';');
@@ -340,8 +341,6 @@ canon_snmp_callback (int operation, netsnmp_session *session, int reqid,
             memcpy (model, model_start, model_len);
             model[model_len] = '\0';
           }
-        else if (model[0] == '\0')
-          snprintf (model, sizeof (model), "%s", value);
       }
   peer = pdu->transport_data;
   if (peer == NULL || pdu->transport_data_length != sizeof (*peer))
