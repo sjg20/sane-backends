@@ -175,6 +175,10 @@ typedef struct capabilities
     FILE *tmp;
     char *scanJob;
     unsigned char *img_data;
+    void *jpeg_stream;
+    void *png_stream;
+    void *tiff_stream;
+    void *pdf_stream;
     long img_size;
     long img_read;
     size_t real_read;
@@ -303,6 +307,54 @@ SANE_Status get_JPEG_data(capabilities_t *scanner,
                           int *width,
                           int *height,
                           int *bps);
+SANE_Status escl_jpeg_stream_start(capabilities_t *scanner,
+                                   const ESCL_Device *device,
+                                   char *scanJob,
+                                   char *result,
+                                   int *width,
+                                   int *height,
+                                   int *bps);
+SANE_Status escl_jpeg_stream_read(capabilities_t *scanner,
+                                  unsigned char *buf,
+                                  SANE_Int maxlen,
+                                  SANE_Int *len);
+void escl_jpeg_stream_finish(capabilities_t *scanner);
+
+SANE_Status escl_png_stream_start(capabilities_t *scanner,
+                                  const ESCL_Device *device,
+                                  char *scanJob,
+                                  char *result,
+                                  int *width,
+                                  int *height,
+                                  int *bps);
+SANE_Status escl_png_stream_read(capabilities_t *scanner,
+                                 unsigned char *buf,
+                                 SANE_Int maxlen,
+                                 SANE_Int *len);
+void escl_png_stream_finish(capabilities_t *scanner);
+
+SANE_Status escl_tiff_stream_start(capabilities_t *scanner,
+                                   const ESCL_Device *device,
+                                   char *scanJob,
+                                   char *result,
+                                   int *width,
+                                   int *height,
+                                   int *bps);
+SANE_Status escl_tiff_stream_read(capabilities_t *scanner,
+                                  unsigned char *buf,
+                                  SANE_Int maxlen,
+                                  SANE_Int *len);
+void escl_tiff_stream_finish(capabilities_t *scanner);
+
+SANE_Status escl_pdf_stream_start(capabilities_t *scanner,
+                                  int *width,
+                                  int *height,
+                                  int *bps);
+SANE_Status escl_pdf_stream_read(capabilities_t *scanner,
+                                 unsigned char *buf,
+                                 SANE_Int maxlen,
+                                 SANE_Int *len);
+void escl_pdf_stream_finish(capabilities_t *scanner);
 
 // PNG
 SANE_Status get_PNG_data(capabilities_t *scanner,

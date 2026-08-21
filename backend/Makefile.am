@@ -629,6 +629,10 @@ libescl_la_SOURCES = escl/escl.c \
 	escl/escl_newjob.c \
 	escl/escl_reset.c \
 	escl/escl_scan.c \
+	escl/escl_jpeg_stream.c \
+	escl/escl_png_stream.c \
+	escl/escl_tiff_stream.c \
+	escl/escl_pdf_stream.c \
 	escl/escl_status.c \
 	escl/escl_jpeg.c \
 	escl/escl_png.c \
@@ -648,7 +652,7 @@ libsane_escl_la_LIBADD = $(COMMON_LIBS) \
     ../sanei/sanei_config.lo \
     sane_strstatus.lo \
     $(MATH_LIB) $(JPEG_LIBS) $(PNG_LIBS) $(TIFF_LIBS) $(POPPLER_GLIB_LIBS) \
-    $(XML_LIBS) $(libcurl_LIBS) $(AVAHI_LIBS)
+    $(XML_LIBS) $(libcurl_LIBS) $(AVAHI_LIBS) $(SANEI_THREAD_LIBS)
 endif
 endif
 endif
