@@ -231,6 +231,30 @@ find_network_config (const char *model,
   return best;
 }
 
+static int
+network_scanner_exists (const char *address)
+{
+  scanner_info_t *si;
+  char canon_name[INET_ADDRSTRLEN + sizeof ("canonhttp://")];
+  const char *bjnp_prefix = "bjnp://";
+  size_t bjnp_prefix_len = strlen (bjnp_prefix);
+  size_t address_len = strlen (address);
+
+  snprintf (canon_name, sizeof (canon_name), "canonhttp://%s", address);
+  for (si = first_scanner; si != NULL; si = si->next)
+    {
+      if (strcmp (si->devname, canon_name) == 0)
+        return 1;
+      if (strncmp (si->devname, bjnp_prefix, bjnp_prefix_len) == 0 &&
+          strlen (si->devname) > bjnp_prefix_len + address_len &&
+          strncmp (si->devname + bjnp_prefix_len, address,
+                   address_len) == 0 &&
+          si->devname[bjnp_prefix_len + address_len] == ':')
+        return 1;
+    }
+  return 0;
+}
+
 static SANE_Status
 attach_canon_http (const char *address, const char *model,
                    const char *serial,
@@ -242,6 +266,8 @@ attach_canon_http (const char *address, const char *model,
 
   if (cfg == NULL)
     return SANE_STATUS_INVAL;
+  if (network_scanner_exists (address))
+    return SANE_STATUS_GOOD;
   snprintf (devname, sizeof (devname), "canonhttp://%s", address);
   si = calloc (1, sizeof (*si));
   if (si == NULL)
