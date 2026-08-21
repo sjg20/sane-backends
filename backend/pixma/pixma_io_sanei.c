@@ -46,7 +46,13 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <limits.h>		/* INT_MAX */
+#ifdef HAVE_SYS_SOCKET_H
+#include <sys/socket.h>
+#endif
+#ifdef HAVE_NETINET_IN_H
+#include <netinet/in.h>
 #include <arpa/inet.h>
+#endif
 
 #if HAVE_LIBCURL
 #include <curl/curl.h>
