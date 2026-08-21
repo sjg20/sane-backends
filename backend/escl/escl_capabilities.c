@@ -57,6 +57,10 @@ escl_free_capabilities(capabilities_t *scanner)
     if (!scanner)
         return;
 
+    escl_jpeg_stream_finish(scanner);
+    escl_png_stream_finish(scanner);
+    escl_tiff_stream_finish(scanner);
+    escl_pdf_stream_finish(scanner);
     if (scanner->tmp)
         fclose(scanner->tmp);
     free(scanner->scanJob);

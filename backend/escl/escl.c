@@ -244,6 +244,10 @@ escl_free_handler(escl_sane_t *handler)
     if (handler == NULL)
         return;
 
+    escl_jpeg_stream_finish(handler->scanner);
+    escl_png_stream_finish(handler->scanner);
+    escl_tiff_stream_finish(handler->scanner);
+    escl_pdf_stream_finish(handler->scanner);
     free(handler->result);
     escl_free_capabilities(handler->scanner);
     escl_free_device(handler->device);
@@ -1466,6 +1470,7 @@ sane_cancel(SANE_Handle h)
 {
     DBG (10, "escl sane_cancel\n");
     escl_sane_t *handler = h;
+    escl_jpeg_stream_finish(handler->scanner);
     if (handler->scanner->tmp)
     {
       fclose(handler->scanner->tmp);
@@ -1858,24 +1863,67 @@ sane_start(SANE_Handle h)
          return SANE_STATUS_NO_DOCS;
        }
     }
-    status = escl_scan(handler->scanner, handler->device, handler->scanner->scanJob, handler->result);
+    if (!strcmp(handler->scanner->caps[handler->scanner->source].default_format, "image/jpeg"))
+    {
+       status = escl_jpeg_stream_start(handler->scanner, handler->device,
+                                       handler->scanner->scanJob, handler->result,
+                                       &w, &he, &bps);
+       if (status == SANE_STATUS_UNSUPPORTED) {
+          status = escl_scan(handler->scanner, handler->device,
+                             handler->scanner->scanJob, handler->result);
+          if (status == SANE_STATUS_GOOD)
+             status = get_JPEG_data(handler->scanner, &w, &he, &bps);
+       }
+    }
+    else if (!strcmp(handler->scanner->caps[handler->scanner->source].default_format, "image/png") &&
+             handler->scanner->png_stream == NULL)
+    {
+       status = escl_png_stream_start(handler->scanner, handler->device,
+                                      handler->scanner->scanJob, handler->result,
+                                      &w, &he, &bps);
+       if (status == SANE_STATUS_UNSUPPORTED) {
+          status = escl_scan(handler->scanner, handler->device,
+                             handler->scanner->scanJob, handler->result);
+          if (status == SANE_STATUS_GOOD)
+             status = get_PNG_data(handler->scanner, &w, &he, &bps);
+       }
+    }
+    else if (!strcmp(handler->scanner->caps[handler->scanner->source].default_format, "image/tiff"))
+    {
+       status = escl_tiff_stream_start(handler->scanner, handler->device,
+                                       handler->scanner->scanJob, handler->result,
+                                       &w, &he, &bps);
+       if (status == SANE_STATUS_UNSUPPORTED) {
+          status = escl_scan(handler->scanner, handler->device,
+                             handler->scanner->scanJob, handler->result);
+          if (status == SANE_STATUS_GOOD)
+             status = get_TIFF_data(handler->scanner, &w, &he, &bps);
+       }
+    }
+    else
+       status = escl_scan(handler->scanner, handler->device,
+                          handler->scanner->scanJob, handler->result);
     if (status != SANE_STATUS_GOOD)
        return (status);
     if (!strcmp(handler->scanner->caps[handler->scanner->source].default_format, "image/jpeg"))
     {
-       status = get_JPEG_data(handler->scanner, &w, &he, &bps);
+       /* The JPEG decoder remains active and produces rows from sane_read. */
     }
-    else if (!strcmp(handler->scanner->caps[handler->scanner->source].default_format, "image/png"))
+    else if (!strcmp(handler->scanner->caps[handler->scanner->source].default_format, "image/png") &&
+             handler->scanner->png_stream == NULL)
     {
        status = get_PNG_data(handler->scanner, &w, &he, &bps);
     }
-    else if (!strcmp(handler->scanner->caps[handler->scanner->source].default_format, "image/tiff"))
+    else if (!strcmp(handler->scanner->caps[handler->scanner->source].default_format, "image/tiff") &&
+             handler->scanner->tiff_stream == NULL)
     {
        status = get_TIFF_data(handler->scanner, &w, &he, &bps);
     }
     else if (!strcmp(handler->scanner->caps[handler->scanner->source].default_format, "application/pdf"))
     {
-       status = get_PDF_data(handler->scanner, &w, &he, &bps);
+       status = escl_pdf_stream_start(handler->scanner, &w, &he, &bps);
+       if (status == SANE_STATUS_UNSUPPORTED)
+          status = get_PDF_data(handler->scanner, &w, &he, &bps);
     }
     else {
        DBG(10, "Unknown image format\n");
@@ -1956,7 +2004,35 @@ sane_read(SANE_Handle h, SANE_Byte *buf, SANE_Int maxlen, SANE_Int *len)
             return (status);
         handler->decompress_scan_data = SANE_TRUE;
     }
-    if (handler->scanner->img_data == NULL)
+    if (handler->scanner->jpeg_stream != NULL) {
+        status = escl_jpeg_stream_read(handler->scanner, buf, maxlen, len);
+        if (status != SANE_STATUS_EOF)
+            return status;
+        escl_jpeg_stream_finish(handler->scanner);
+        handler->end_read = SANE_TRUE;
+    }
+    if (handler->scanner->png_stream != NULL) {
+        status = escl_png_stream_read(handler->scanner, buf, maxlen, len);
+        if (status != SANE_STATUS_EOF)
+            return status;
+        escl_png_stream_finish(handler->scanner);
+        handler->end_read = SANE_TRUE;
+    }
+    if (handler->scanner->tiff_stream != NULL) {
+        status = escl_tiff_stream_read(handler->scanner, buf, maxlen, len);
+        if (status != SANE_STATUS_EOF)
+            return status;
+        escl_tiff_stream_finish(handler->scanner);
+        handler->end_read = SANE_TRUE;
+    }
+    if (handler->scanner->pdf_stream != NULL) {
+        status = escl_pdf_stream_read(handler->scanner, buf, maxlen, len);
+        if (status != SANE_STATUS_EOF)
+            return status;
+        escl_pdf_stream_finish(handler->scanner);
+        handler->end_read = SANE_TRUE;
+    }
+    if (handler->scanner->img_data == NULL && !handler->end_read)
         return (SANE_STATUS_INVAL);
     if (!handler->end_read) {
         readbyte = min((handler->scanner->img_size - handler->scanner->img_read), maxlen);
