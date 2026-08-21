@@ -314,11 +314,14 @@ canon_snmp_callback (int operation, netsnmp_session *session, int reqid,
   netsnmp_variable_list *var;
   oid model_oid[MAX_OID_LEN];
   oid id_oid[MAX_OID_LEN];
+  oid mac_oid[MAX_OID_LEN];
   size_t model_oid_len = MAX_OID_LEN;
   size_t id_oid_len = MAX_OID_LEN;
+  size_t mac_oid_len = MAX_OID_LEN;
   char model[128] = "";
   char address[INET_ADDRSTRLEN] = "";
   char serial[64] = "snmp";
+  char mac[18] = "";
   netsnmp_indexed_addr_pair *peer;
   struct sockaddr_in *remote;
 
@@ -328,7 +331,9 @@ canon_snmp_callback (int operation, netsnmp_session *session, int reqid,
       !read_objid (".1.3.6.1.4.1.1602.1.1.1.1.0", model_oid,
                    &model_oid_len) ||
       !read_objid (".1.3.6.1.4.1.2699.1.2.1.2.1.1.3.1", id_oid,
-                   &id_oid_len))
+                   &id_oid_len) ||
+      !read_objid (".1.3.6.1.4.1.1602.1.3.1.13.0", mac_oid,
+                   &mac_oid_len))
     return 1;
   for (var = pdu->variables; var != NULL; var = var->next_variable)
     if (var->type == ASN_OCTET_STR && var->val.string != NULL)
@@ -341,6 +346,13 @@ canon_snmp_callback (int operation, netsnmp_session *session, int reqid,
         if (snmp_oid_compare (var->name, var->name_length,
                               model_oid, model_oid_len) == 0)
           snprintf (model, sizeof (model), "%s", value);
+        else if (snmp_oid_compare (var->name, var->name_length,
+                                   mac_oid, mac_oid_len) == 0 &&
+                 var->val_len == 6)
+          snprintf (mac, sizeof (mac), "%02x%02x_%02x%02x_%02x%02x",
+                    var->val.string[0], var->val.string[1],
+                    var->val.string[2], var->val.string[3],
+                    var->val.string[4], var->val.string[5]);
         else if (snmp_oid_compare (var->name, var->name_length,
                                    id_oid, id_oid_len) == 0)
           {
@@ -364,6 +376,8 @@ canon_snmp_callback (int operation, netsnmp_session *session, int reqid,
             model[model_len] = '\0';
           }
       }
+  if (mac[0] != '\0')
+    snprintf (serial, sizeof (serial), "%s", mac);
   peer = pdu->transport_data;
   if (peer == NULL || pdu->transport_data_length != sizeof (*peer))
     return 1;
