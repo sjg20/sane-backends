@@ -303,10 +303,6 @@ unsigned char *escl_crop_surface(capabilities_t *scanner,
                                  int *height);
 
 // JPEG
-SANE_Status get_JPEG_data(capabilities_t *scanner,
-                          int *width,
-                          int *height,
-                          int *bps);
 SANE_Status escl_jpeg_stream_start(capabilities_t *scanner,
                                    const ESCL_Device *device,
                                    char *scanJob,
@@ -355,24 +351,6 @@ SANE_Status escl_pdf_stream_read(capabilities_t *scanner,
                                  SANE_Int maxlen,
                                  SANE_Int *len);
 void escl_pdf_stream_finish(capabilities_t *scanner);
-
-// PNG
-SANE_Status get_PNG_data(capabilities_t *scanner,
-                         int *width,
-                         int *height,
-                         int *bps);
-
-// TIFF
-SANE_Status get_TIFF_data(capabilities_t *scanner,
-                          int *width,
-                          int *height,
-                          int *bps);
-
-// PDF
-SANE_Status get_PDF_data(capabilities_t *scanner,
-                         int *width,
-                         int *height,
-                         int *bps);
 
 #define ESCL_CONNECT_TIMEOUT 10L
 #define ESCL_REQUEST_TIMEOUT 300L

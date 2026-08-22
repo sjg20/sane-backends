@@ -1,256 +1,286 @@
 /* sane - Scanner Access Now Easy.
 
-   Copyright (C) 2019 Thierry HUCHARD <thierry@ordissimo.com>
+   Copyright (C) 2026 Thierry HUCHARD
 
    This file is part of the SANE package.
 
    SANE is free software; you can redistribute it and/or modify it under
-   the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 3 of the License, or (at your
-   option) any later version.
+   the terms of the GNU General Public License as published by the
+   Free Software Foundation; either version 3 of the License, or
+   (at your option) any later version.
 
    SANE is distributed in the hope that it will be useful, but WITHOUT
-   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   for more details.
+   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+   License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with sane; see the file COPYING.
-   If not, see <https://www.gnu.org/licenses/>.
+   along with sane; see the file COPYING.  If not, see
+   <https://www.gnu.org/licenses/>.
 
-   This file implements a SANE backend for eSCL scanners.  */
+   This file implements banded PDF rendering for the eSCL backend.  */
 
 #define DEBUG_DECLARE_ONLY
 #include "../include/sane/config.h"
 
 #include "escl.h"
 
-#include "../include/sane/sanei.h"
-
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <stddef.h>
+#include <cairo.h>
 #include <math.h>
-
-#include <errno.h>
+#include <stdlib.h>
+#include <string.h>
 
 #if HAVE_POPPLER_GLIB
 #include <poppler/glib/poppler.h>
-#endif
 
-#include <setjmp.h>
-
-
-#if HAVE_POPPLER_GLIB
-
-#define ESCL_PDF_USE_MAPPED_FILE POPPLER_CHECK_VERSION(0,82,0)
-
-#if ! ESCL_PDF_USE_MAPPED_FILE
-static unsigned char*
-set_file_in_buffer(FILE *fp, int *size)
+struct pdf_stream
 {
-	char buffer[1024] = { 0 };
-    unsigned char *data = (unsigned char *)calloc(1, sizeof(char));
-    int nx = 0;
-
-    while(!feof(fp))
-    {
-      int n = fread(buffer,sizeof(char),1024,fp);
-      unsigned char *t = realloc(data, nx + n + 1);
-      if (t == NULL) {
-        DBG(10, "not enough memory (realloc returned NULL)");
-        free(data);
-        return NULL;
-      }
-      data = t;
-      memcpy(&(data[nx]), buffer, n);
-      nx = nx + n;
-      data[nx] = 0;
-    }
-    *size = nx;
-    return data;
-}
-#endif
-
-static unsigned char *
-cairo_surface_to_pixels (cairo_surface_t *surface, int bps)
-{
-  int cairo_width, cairo_height, cairo_rowstride;
-  unsigned char *data, *dst, *cairo_data;
-  unsigned int *src;
-  int x, y;
-
-  cairo_width = cairo_image_surface_get_width (surface);
-  cairo_height = cairo_image_surface_get_height (surface);
-  cairo_rowstride = cairo_image_surface_get_stride (surface);
-  cairo_data = cairo_image_surface_get_data (surface);
-  data = (unsigned char*)calloc(1, sizeof(unsigned char) * (cairo_height * cairo_width * bps));
-
-  for (y = 0; y < cairo_height; y++)
-    {
-      src = (unsigned int *) (cairo_data + y * cairo_rowstride);
-      dst = data + y * (cairo_width * bps);
-      for (x = 0; x < cairo_width; x++)
-        {
-          dst[0] = (*src >> 16) & 0xff;
-          dst[1] = (*src >> 8) & 0xff;
-          dst[2] = (*src >> 0) & 0xff;
-          dst += bps;
-          src++;
-        }
-    }
-    return data;
-}
-
-SANE_Status
-get_PDF_data(capabilities_t *scanner, int *width, int *height, int *bps)
-{
-        cairo_surface_t *cairo_surface = NULL;
-        cairo_t *cr;
-    PopplerPage *page;
-    PopplerDocument   *doc;
-    double dw, dh;
-    int w, h;
-    unsigned char* surface = NULL;
-    SANE_Status status = SANE_STATUS_GOOD;
-
-#if ESCL_PDF_USE_MAPPED_FILE
-    GMappedFile *file;
+    FILE *file;
+    GMappedFile *mapped;
     GBytes *bytes;
+    PopplerDocument *document;
+    PopplerPage *page;
+    int width;
+    int height;
+    int x_off;
+    int y_off;
+    int real_width;
+    int real_height;
+    int band_height;
+    double scale;
+    int band_line;
+    unsigned char *band;
+    size_t row_size;
+    size_t band_size;
+    size_t band_pos;
+    SANE_Bool eof;
+};
 
-    file = g_mapped_file_new_from_fd (fileno (scanner->tmp), 0, NULL);
-    if (!file) {
-                DBG(10, "Error : g_mapped_file_new_from_fd");
-                status =  SANE_STATUS_INVAL;
-                goto close_file;
-        }
+static void
+pdf_stream_dimensions(struct pdf_stream *stream, capabilities_t *scanner)
+{
+    caps_t *caps = &scanner->caps[scanner->source];
+    int expected_w = (int)((double)caps->width * caps->default_resolution / 300.0 + 0.5);
+    int expected_h = (int)((double)caps->height * caps->default_resolution / 300.0 + 0.5);
 
-    bytes = g_mapped_file_get_bytes (file);
-    if (!bytes) {
-                DBG(10, "Error : g_mapped_file_get_bytes");
-                status =  SANE_STATUS_INVAL;
-                goto free_file;
-        }
-
-    doc = poppler_document_new_from_bytes (bytes, NULL, NULL);
-    if (!doc) {
-                DBG(10, "Error : poppler_document_new_from_bytes");
-                status =  SANE_STATUS_INVAL;
-                goto free_bytes;
-        }
-#else
-    int size = 0;
-    char *data = NULL;
-
-    data = (char*)set_file_in_buffer(scanner->tmp, &size);
-    if (!data) {
-                DBG(10, "Error : set_file_in_buffer");
-                status =  SANE_STATUS_INVAL;
-                goto close_file;
-        }
-
-    doc = poppler_document_new_from_data (data, size, NULL, NULL);
-    if (!doc) {
-                DBG(10, "Error : poppler_document_new_from_data");
-                status =  SANE_STATUS_INVAL;
-                goto free_data;
-        }
-#endif
-
-    page = poppler_document_get_page (doc, 0);
-    if (!page) {
-                DBG(10, "Error : poppler_document_get_page");
-                status =  SANE_STATUS_INVAL;
-                goto free_doc;
-        }
-
-    poppler_page_get_size (page, &dw, &dh);
-    dw = (double)scanner->caps[scanner->source].default_resolution * dw / 72.0;
-    dh = (double)scanner->caps[scanner->source].default_resolution * dh / 72.0;
-    w = (int)ceil(dw);
-    h = (int)ceil(dh);
-    cairo_surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, w, h);
-    if (!cairo_surface) {
-                DBG(10, "Error : cairo_image_surface_create");
-                status =  SANE_STATUS_INVAL;
-                goto free_page;
-        }
-
-    cr = cairo_create (cairo_surface);
-    if (!cairo_surface) {
-                DBG(10, "Error : cairo_create");
-                status =  SANE_STATUS_INVAL;
-                goto free_surface;
-        }
-    cairo_scale (cr, (double)scanner->caps[scanner->source].default_resolution / 72.0,
-                     (double)scanner->caps[scanner->source].default_resolution / 72.0);
-    cairo_save (cr);
-    poppler_page_render (page, cr);
-    cairo_restore (cr);
-
-    cairo_set_operator (cr, CAIRO_OPERATOR_DEST_OVER);
-    cairo_set_source_rgb (cr, 1, 1, 1);
-    cairo_paint (cr);
-
-    int st = cairo_status(cr);
-    if (st)
-    {
-        DBG(10, "%s", cairo_status_to_string (st));
-                status =  SANE_STATUS_INVAL;
-        goto destroy_cr;
+    stream->real_width = stream->width;
+    stream->real_height = stream->height;
+    if ((stream->width > expected_w + 4 || stream->height > expected_h + 4) &&
+        caps->MaxWidth > 0 && caps->MaxHeight > 0) {
+        double scale_x = (double)stream->width / caps->MaxWidth;
+        double scale_y = (double)stream->height / caps->MaxHeight;
+        stream->x_off = (int)(caps->pos_x * scale_x + 0.5);
+        stream->y_off = (int)(caps->pos_y * scale_y + 0.5);
+        stream->real_width = (int)(caps->width * scale_x + 0.5);
+        stream->real_height = (int)(caps->height * scale_y + 0.5);
+        if (stream->x_off < 0) stream->x_off = 0;
+        if (stream->y_off < 0) stream->y_off = 0;
+        if (stream->x_off >= stream->width) stream->real_width = 0;
+        if (stream->y_off >= stream->height) stream->real_height = 0;
+        if (stream->real_width > stream->width - stream->x_off)
+            stream->real_width = stream->width - stream->x_off;
+        if (stream->real_height > stream->height - stream->y_off)
+            stream->real_height = stream->height - stream->y_off;
     }
-
-    *bps = 3;
-
-    DBG(10, "Escl Pdf : Image Size [%dx%d]\n", w, h);
-
-    surface = cairo_surface_to_pixels (cairo_surface, *bps);
-    if (!surface)  {
-        status = SANE_STATUS_NO_MEM;
-        DBG(10, "Escl Pdf : Surface Memory allocation problem");
-        goto destroy_cr;
-    }
-
-    // If necessary, trim the image.
-    surface = escl_crop_surface(scanner, surface, w, h, *bps, width, height);
-    if (!surface)  {
-        DBG(10, "Escl Pdf Crop: Surface Memory allocation problem");
-        status = SANE_STATUS_NO_MEM;
-    }
-
-destroy_cr:
-    cairo_destroy (cr);
-free_surface:
-    cairo_surface_destroy (cairo_surface);
-free_page:
-    g_object_unref (page);
-free_doc:
-    g_object_unref (doc);
-#if ESCL_PDF_USE_MAPPED_FILE
-free_bytes:
-    g_bytes_unref (bytes);
-free_file:
-    g_mapped_file_unref (file);
-#else
-free_data:
-    free(data);
-#endif
-close_file:
-    if (scanner->tmp)
-        fclose(scanner->tmp);
-    scanner->tmp = NULL;
-    return status;
 }
+
+static void
+pdf_stream_free(struct pdf_stream *stream)
+{
+    if (!stream)
+        return;
+    if (stream->page)
+        g_object_unref(stream->page);
+    if (stream->document)
+        g_object_unref(stream->document);
+    if (stream->bytes)
+        g_bytes_unref(stream->bytes);
+    if (stream->mapped)
+        g_mapped_file_unref(stream->mapped);
+    if (stream->file)
+        fclose(stream->file);
+    free(stream->band);
+    free(stream);
+}
+
+SANE_Status
+escl_pdf_stream_start(capabilities_t *scanner,
+                      int *width,
+                      int *height,
+                      int *bps)
+{
+    struct pdf_stream *stream;
+    double page_width;
+    double page_height;
+    GError *error = NULL;
+
+    if (!scanner || !scanner->tmp)
+        return SANE_STATUS_INVAL;
+    stream = calloc(1, sizeof(*stream));
+    if (!stream)
+        return SANE_STATUS_NO_MEM;
+    stream->file = scanner->tmp;
+    scanner->tmp = NULL;
+    stream->mapped = g_mapped_file_new_from_fd(fileno(stream->file), FALSE, &error);
+    if (!stream->mapped)
+        goto error;
+    stream->bytes = g_mapped_file_get_bytes(stream->mapped);
+    if (!stream->bytes)
+        goto error;
+    stream->document = poppler_document_new_from_bytes(stream->bytes, NULL, &error);
+    if (!stream->document)
+        goto error;
+    stream->page = poppler_document_get_page(stream->document, 0);
+    if (!stream->page)
+        goto error;
+    poppler_page_get_size(stream->page, &page_width, &page_height);
+    stream->width = (int)ceil(scanner->caps[scanner->source].default_resolution *
+                               page_width / 72.0);
+    stream->height = (int)ceil(scanner->caps[scanner->source].default_resolution *
+                                page_height / 72.0);
+    if (stream->width <= 0 || stream->height <= 0)
+        goto error;
+    stream->scale = scanner->caps[scanner->source].default_resolution / 72.0;
+    pdf_stream_dimensions(stream, scanner);
+    if (stream->real_width <= 0 || stream->real_height <= 0) {
+        scanner->tmp = stream->file;
+        stream->file = NULL;
+        pdf_stream_free(stream);
+        return SANE_STATUS_UNSUPPORTED;
+    }
+    stream->band_height = 64;
+    stream->row_size = (size_t)stream->real_width * 3;
+    stream->band_size = (size_t)stream->real_width * stream->band_height * 3;
+    stream->band = malloc(stream->band_size);
+    if (!stream->band)
+        goto error;
+    stream->band_size = 0;
+    scanner->pdf_stream = stream;
+    *width = stream->real_width;
+    *height = stream->real_height;
+    *bps = 3;
+    if (error)
+        g_error_free(error);
+    return SANE_STATUS_GOOD;
+
+error:
+    if (error)
+        g_error_free(error);
+    pdf_stream_free(stream);
+    return SANE_STATUS_INVAL;
+}
+
+static SANE_Status
+pdf_stream_render_band(struct pdf_stream *stream)
+{
+    int remaining = stream->real_height - stream->band_line;
+    int lines = remaining > stream->band_height ? stream->band_height : remaining;
+    cairo_surface_t *surface;
+    cairo_t *cr;
+    unsigned char *data;
+    int stride;
+
+    if (lines <= 0) {
+        stream->eof = SANE_TRUE;
+        return SANE_STATUS_GOOD;
+    }
+    surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32,
+                                          stream->width, lines);
+    if (cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS) {
+        cairo_surface_destroy(surface);
+        return SANE_STATUS_NO_MEM;
+    }
+    cr = cairo_create(surface);
+    cairo_set_source_rgb(cr, 1, 1, 1);
+    cairo_paint(cr);
+    cairo_scale(cr, stream->scale, stream->scale);
+    cairo_translate(cr, 0, -(stream->y_off + stream->band_line) / stream->scale);
+    poppler_page_render(stream->page, cr);
+    cairo_destroy(cr);
+    cairo_surface_flush(surface);
+    data = cairo_image_surface_get_data(surface);
+    stride = cairo_image_surface_get_stride(surface);
+    for (int y = 0; y < lines; y++) {
+        unsigned int *src = (unsigned int *)(data + y * stride);
+        unsigned char *dst = stream->band + (size_t)y * stream->row_size;
+        for (int x = 0; x < stream->real_width; x++) {
+            unsigned int pixel = src[stream->x_off + x];
+            dst[x * 3] = (pixel >> 16) & 0xff;
+            dst[x * 3 + 1] = (pixel >> 8) & 0xff;
+            dst[x * 3 + 2] = pixel & 0xff;
+        }
+    }
+    stream->band_size = (size_t)lines * stream->row_size;
+    stream->band_pos = 0;
+    cairo_surface_destroy(surface);
+    return SANE_STATUS_GOOD;
+}
+
+SANE_Status
+escl_pdf_stream_read(capabilities_t *scanner,
+                     unsigned char *buf,
+                     SANE_Int maxlen,
+                     SANE_Int *len)
+{
+    struct pdf_stream *stream = scanner->pdf_stream;
+    *len = 0;
+    if (!stream || maxlen <= 0)
+        return SANE_STATUS_INVAL;
+    while (*len < maxlen && !stream->eof) {
+        if (stream->band_pos >= stream->band_size) {
+            SANE_Status status = pdf_stream_render_band(stream);
+            if (status != SANE_STATUS_GOOD)
+                return status;
+            if (stream->eof)
+                break;
+            stream->band_line += stream->band_size / stream->row_size;
+        }
+        size_t count = stream->band_size - stream->band_pos;
+        if (count > (size_t)(maxlen - *len))
+            count = (size_t)(maxlen - *len);
+        memcpy(buf + *len, stream->band + stream->band_pos, count);
+        stream->band_pos += count;
+        *len += (SANE_Int)count;
+    }
+    if (*len == 0 && stream->eof)
+        return SANE_STATUS_EOF;
+    return SANE_STATUS_GOOD;
+}
+
+void
+escl_pdf_stream_finish(capabilities_t *scanner)
+{
+    struct pdf_stream *stream;
+    if (!scanner || !scanner->pdf_stream)
+        return;
+    stream = scanner->pdf_stream;
+    scanner->pdf_stream = NULL;
+    pdf_stream_free(stream);
+}
+
 #else
 
 SANE_Status
-get_PDF_data(capabilities_t __sane_unused__ *scanner,
-              int __sane_unused__ *width,
-              int __sane_unused__ *height,
-              int __sane_unused__ *bps)
+escl_pdf_stream_start(capabilities_t __sane_unused__ *scanner,
+                      int __sane_unused__ *width,
+                      int __sane_unused__ *height,
+                      int __sane_unused__ *bps)
 {
-	return (SANE_STATUS_INVAL);
+    return SANE_STATUS_UNSUPPORTED;
+}
+
+SANE_Status
+escl_pdf_stream_read(capabilities_t __sane_unused__ *scanner,
+                     unsigned char __sane_unused__ *buf,
+                     SANE_Int __sane_unused__ maxlen,
+                     SANE_Int __sane_unused__ *len)
+{
+    return SANE_STATUS_UNSUPPORTED;
+}
+
+void
+escl_pdf_stream_finish(capabilities_t __sane_unused__ *scanner)
+{
 }
 
 #endif
