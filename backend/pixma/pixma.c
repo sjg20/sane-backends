@@ -152,8 +152,8 @@ static pixma_sane_t *first_scanner = NULL;
 static const SANE_Device **dev_list = NULL;
 static const char* conf_devices[MAX_CONF_DEVICES];
 
-void pixma_add_custom_mp150_device (const char *, const char *, const char *, const char *, const char *);
-void pixma_add_custom_iclass_device (const char *, const char *, const char *, const char *, const char *, const char *, const char *, const char *);
+SANE_Status pixma_add_custom_mp150_device (const char *, const char *, const char *, const char *, const char *);
+SANE_Status pixma_add_custom_iclass_device (const char *, const char *, const char *, const char *, const char *, const char *, const char *, const char *);
 
 static void mark_all_button_options_cached ( struct pixma_sane_t * ss )
 {
@@ -226,8 +226,8 @@ static SANE_Status config_attach_pixma(SANEI_Config __sane_unused__ * config,
             return SANE_STATUS_INVAL;
         }
         PDBG (pixma_dbg (3, "Pixma capacity is [%s].\n", capacity_str));
-        pixma_add_custom_mp150_device (name_str, model_str, pid_str, dpi_str, capacity_str);
-        return SANE_STATUS_GOOD;
+        return pixma_add_custom_mp150_device (name_str, model_str, pid_str,
+                                              dpi_str, capacity_str);
 
     }
     else if (strcmp(type_str, "ICLASS") == 0) {
@@ -289,8 +289,9 @@ static SANE_Status config_attach_pixma(SANEI_Config __sane_unused__ * config,
             return SANE_STATUS_INVAL;
         }
         PDBG (pixma_dbg (3, "Pixma capacity is [%s].\n", capacity_str));
-        pixma_add_custom_iclass_device (name_str, model_str, pid_str, dpi_str, adpi_str, w_str, h_str, capacity_str);
-        return SANE_STATUS_GOOD;
+        return pixma_add_custom_iclass_device (name_str, model_str, pid_str,
+                                               dpi_str, adpi_str, w_str, h_str,
+                                               capacity_str);
     }
     else {
          return config_attach_pixma_generic (line);

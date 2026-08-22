@@ -2074,7 +2074,7 @@ const pixma_config_t pixma_mp150_devices[] = {
   END_OF_DEVICE_LIST
 };
 
-void
+SANE_Status
 pixma_add_custom_mp150_device (const char *name,
                                const char *model,
                                const char *pid,
@@ -2091,7 +2091,7 @@ pixma_add_custom_mp150_device (const char *name,
       if (!pixma_custom_mp150_devices) {
          PDBG (pixma_dbg (1,
                "WARNING: unable to allocate custom MP150 device list\n"));
-         return;
+         return SANE_STATUS_NO_MEM;
       }
    } else {
       pixma_config_t *devices = realloc
@@ -2100,7 +2100,7 @@ pixma_add_custom_mp150_device (const char *name,
       if (!devices) {
         PDBG (pixma_dbg (1,
               "WARNING: unable to grow custom MP150 device list\n"));
-        return;
+        return SANE_STATUS_NO_MEM;
       }
       pixma_custom_mp150_devices = devices;
    }
@@ -2119,4 +2119,5 @@ pixma_add_custom_mp150_device (const char *name,
    pixma_config_t noelem = END_OF_DEVICE_LIST;
    pixma_custom_mp150_devices[(pixma_custom_mp150_devices_count + 1)] = noelem;
    pixma_custom_mp150_devices_count++;
+   return SANE_STATUS_GOOD;
 }
