@@ -629,15 +629,11 @@ libescl_la_SOURCES = escl/escl.c \
 	escl/escl_newjob.c \
 	escl/escl_reset.c \
 	escl/escl_scan.c \
-	escl/escl_jpeg_stream.c \
-	escl/escl_png_stream.c \
-	escl/escl_tiff_stream.c \
-	escl/escl_pdf_stream.c \
-	escl/escl_status.c \
 	escl/escl_jpeg.c \
 	escl/escl_png.c \
 	escl/escl_tiff.c \
 	escl/escl_pdf.c \
+	escl/escl_status.c \
 	escl/escl_crop.c
 libescl_la_CPPFLAGS = $(AM_CPPFLAGS) $(JPEG_CFLAGS) $(PNG_CFLAGS) $(TIFF_CFLAGS) $(POPPLER_GLIB_CFLAGS) $(XML_CFLAGS) $(libcurl_CFLAGS) $(AVAHI_CFLAGS) -DBACKEND_NAME=escl
 
