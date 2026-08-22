@@ -1398,7 +1398,8 @@ bjnp_recv_header (int devno, size_t *payload_size )
   struct BJNP_command resp_buf;
   fd_set input;
   struct timeval timeout;
-  int recv_bytes;
+  ssize_t recv_bytes;
+  size_t header_bytes;
   int terrno;
   int result;
   int fd;
@@ -1409,60 +1410,61 @@ bjnp_recv_header (int devno, size_t *payload_size )
   fd = device[devno].tcp_socket;
 
   *payload_size = 0;
-  attempt = 0;
-  do
+  /* get response header. TCP may split it across multiple segments. */
+  header_bytes = 0;
+  while (header_bytes < sizeof (struct BJNP_command))
     {
-      /* wait for data to be received, ignore signals being received */
-      FD_ZERO (&input);
-      FD_SET (fd, &input);
-
-      timeout.tv_sec = device[devno].bjnp_ip_timeout /1000;
-      timeout.tv_usec = device[devno].bjnp_ip_timeout %1000;
-    }
-  while ( ( (result = select (fd + 1, &input, NULL, NULL, &timeout)) <= 0) &&
-	 (errno == EINTR) && (attempt++ < BJNP_MAX_SELECT_ATTEMPTS));
-
-  if (result < 0)
-    {
-      terrno = errno;
-      PDBG (bjnp_dbg (LOG_CRIT,
-		       "bjnp_recv_header: ERROR - could not read response header (select): %s!\n",
-		       strerror (terrno)));
-      errno = terrno;
-      return SANE_STATUS_IO_ERROR;
-    }
-  else if (result == 0)
-    {
-      terrno = errno;
-      PDBG (bjnp_dbg (LOG_CRIT,
-		"bjnp_recv_header: ERROR - could not read response header (select timed out after %d ms)!\n",
-		device[devno].bjnp_ip_timeout ) );
-      errno = terrno;
-      return SANE_STATUS_IO_ERROR;
-    }
-
-  /* get response header */
-
-  if ((recv_bytes =
-       recv (fd, (char *) &resp_buf,
-	     sizeof (struct BJNP_command),
-	     0)) != sizeof (struct BJNP_command))
-    {
-      terrno = errno;
-      if (recv_bytes == 0)
+      attempt = 0;
+      do
         {
-          PDBG (bjnp_dbg (LOG_CRIT,
-          		"bjnp_recv_header: ERROR - (recv) Scanner closed the TCP-connection!\n"));
-        } else {
-          PDBG (bjnp_dbg (LOG_CRIT,
-	      	       "bjnp_recv_header: ERROR - (recv) could not read response header, received %d bytes!\n",
-		       recv_bytes));
-          PDBG (bjnp_dbg
-	  		(LOG_CRIT, "bjnp_recv_header: ERROR - (recv) error: %s!\n",
-	     		strerror (terrno)));
+          /* Wait for the next part, ignoring interrupted waits. */
+          FD_ZERO (&input);
+          FD_SET (fd, &input);
+          timeout.tv_sec = device[devno].bjnp_ip_timeout / 1000;
+          timeout.tv_usec = device[devno].bjnp_ip_timeout % 1000;
         }
-      errno = terrno;
-      return SANE_STATUS_IO_ERROR;
+      while (((result = select (fd + 1, &input, NULL, NULL, &timeout)) <= 0) &&
+             (errno == EINTR) && (attempt++ < BJNP_MAX_SELECT_ATTEMPTS));
+
+      if (result < 0)
+        {
+          terrno = errno;
+          PDBG (bjnp_dbg (LOG_CRIT,
+                          "bjnp_recv_header: ERROR - could not read response header (select): %s!\n",
+                          strerror (terrno)));
+          errno = terrno;
+          return SANE_STATUS_IO_ERROR;
+        }
+      if (result == 0)
+        {
+          terrno = errno;
+          PDBG (bjnp_dbg (LOG_CRIT,
+                          "bjnp_recv_header: ERROR - could not read response header (select timed out after %d ms)!\n",
+                          device[devno].bjnp_ip_timeout));
+          errno = terrno;
+          return SANE_STATUS_IO_ERROR;
+        }
+
+      recv_bytes = recv (fd, (char *) &resp_buf + header_bytes,
+                         sizeof (struct BJNP_command) - header_bytes, 0);
+      if (recv_bytes <= 0)
+        {
+          terrno = errno;
+          if (recv_bytes == 0)
+            {
+              PDBG (bjnp_dbg (LOG_CRIT,
+                              "bjnp_recv_header: ERROR - (recv) Scanner closed the TCP-connection!\n"));
+            }
+          else
+            {
+              PDBG (bjnp_dbg (LOG_CRIT,
+                              "bjnp_recv_header: ERROR - (recv) could not read response header after %ld bytes: %s!\n",
+                              (long) header_bytes, strerror (terrno)));
+            }
+          errno = terrno;
+          return SANE_STATUS_IO_ERROR;
+        }
+      header_bytes += (size_t) recv_bytes;
     }
 
   if (resp_buf.cmd_code != device[devno].last_cmd)
