@@ -171,39 +171,27 @@ escl_newjob (capabilities_t *scanner, const ESCL_Device *device, SANE_Status *st
     int have_jpeg = scanner->caps[scanner->source].have_jpeg;
     int have_tiff = scanner->caps[scanner->source].have_tiff;
     int have_pdf = scanner->caps[scanner->source].have_pdf;
+    SANE_Bool use_pdf = scanner->source == PLATEN &&
+                       have_pdf != -1 &&
+                       scanner->caps[scanner->source].default_color &&
+                       !strcmp(scanner->caps[scanner->source].default_color,
+                               "BlackAndWhite1");
 
-    if ((scanner->source == PLATEN && have_pdf == -1) ||
-        (scanner->source > PLATEN)) {
-	    if (have_tiff != -1) {
-		    scanner->caps[scanner->source].default_format =
-			    strdup(scanner->caps[scanner->source].DocumentFormats[have_tiff]);
-	    }
-	    else if (have_png != -1) {
-		    scanner->caps[scanner->source].default_format =
-			    strdup(scanner->caps[scanner->source].DocumentFormats[have_png]);
-	    }
-	    else if (have_jpeg != -1) {
-		    scanner->caps[scanner->source].default_format =
-			    strdup(scanner->caps[scanner->source].DocumentFormats[have_jpeg]);
-	    }
+    if (use_pdf) {
+        scanner->caps[scanner->source].default_format =
+            strdup(scanner->caps[scanner->source].DocumentFormats[have_pdf]);
     }
-    else {
-	    if (have_pdf != -1) {
-	    	    scanner->caps[scanner->source].default_format =
-		    	    strdup(scanner->caps[scanner->source].DocumentFormats[have_pdf]);
-	    }
-	    else if (have_tiff != -1) {
-		    scanner->caps[scanner->source].default_format =
-			    strdup(scanner->caps[scanner->source].DocumentFormats[have_tiff]);
-	    }
-	    else if (have_png != -1) {
-		    scanner->caps[scanner->source].default_format =
-			    strdup(scanner->caps[scanner->source].DocumentFormats[have_png]);
-	    }
-	    else if (have_jpeg != -1) {
-		    scanner->caps[scanner->source].default_format =
-			    strdup(scanner->caps[scanner->source].DocumentFormats[have_jpeg]);
-	    }
+    else if (have_jpeg != -1) {
+        scanner->caps[scanner->source].default_format =
+            strdup(scanner->caps[scanner->source].DocumentFormats[have_jpeg]);
+    }
+    else if (have_png != -1) {
+        scanner->caps[scanner->source].default_format =
+            strdup(scanner->caps[scanner->source].DocumentFormats[have_png]);
+    }
+    else if (have_tiff != -1) {
+        scanner->caps[scanner->source].default_format =
+            strdup(scanner->caps[scanner->source].DocumentFormats[have_tiff]);
     }
     if (!scanner->caps[scanner->source].default_format || !device->version) {
         *status = SANE_STATUS_INVAL;
