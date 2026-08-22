@@ -571,6 +571,7 @@ split_uri (const char *devname, char *method, char *host, char *port,
     if ( i >= BJNP_ARGS_MAX)
       {
         PDBG (bjnp_dbg (LOG_NOTICE, "split_uri: ERROR - Argument string too long in %s\n", devname));
+        return -1;
       }
     strcpy (args, start);
     }
