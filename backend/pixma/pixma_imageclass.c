@@ -1004,7 +1004,7 @@ const pixma_config_t pixma_iclass_devices[] = {
   DEV (NULL, NULL, 0, 0, 0, 0, 0, 0)
 };
 
-void
+SANE_Status
 pixma_add_custom_iclass_device (const char *name,
                                 const char *model,
                                 const char *pid,
@@ -1024,8 +1024,21 @@ pixma_add_custom_iclass_device (const char *name,
 
    if (pixma_custom_iclass_devices_count == 0) {
       pixma_custom_iclass_devices = (pixma_config_t *)calloc (2, sizeof(pixma_config_t));
+      if (!pixma_custom_iclass_devices) {
+         PDBG (pixma_dbg (1,
+               "WARNING: unable to allocate custom ICLASS device list\n"));
+         return SANE_STATUS_NO_MEM;
+      }
    } else {
-      pixma_custom_iclass_devices = realloc (pixma_custom_iclass_devices, sizeof(pixma_config_t) * (pixma_custom_iclass_devices_count + 2));
+      pixma_config_t *devices = realloc
+        (pixma_custom_iclass_devices,
+         sizeof(pixma_config_t) * (pixma_custom_iclass_devices_count + 2));
+      if (!devices) {
+        PDBG (pixma_dbg (1,
+              "WARNING: unable to grow custom ICLASS device list\n"));
+        return SANE_STATUS_NO_MEM;
+      }
+      pixma_custom_iclass_devices = devices;
    }
 
    while (ccaps[lcaps] != NULL) {
@@ -1045,4 +1058,5 @@ pixma_add_custom_iclass_device (const char *name,
    pixma_config_t noelem = DEV (NULL, NULL, 0, 0, 0, 0, 0, 0);
    pixma_custom_iclass_devices[(pixma_custom_iclass_devices_count + 1)] = noelem;
    pixma_custom_iclass_devices_count++;
+   return SANE_STATUS_GOOD;
 }

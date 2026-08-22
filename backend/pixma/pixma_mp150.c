@@ -1636,10 +1636,11 @@ mp150_fill_buffer (pixma_t * s, pixma_imagebuf_t * ib)
 
       line_size = get_cis_line_size (s);
       proc_buf_size = 2 * line_size;
-      mp->cb.buf = realloc (mp->cb.buf,
-             CMDBUF_SIZE + IMAGE_BLOCK_SIZE + proc_buf_size);
-      if (!mp->cb.buf)
+      uint8_t *buf = realloc (mp->cb.buf,
+                              CMDBUF_SIZE + IMAGE_BLOCK_SIZE + proc_buf_size);
+      if (!buf)
         return PIXMA_ENOMEM;
+      mp->cb.buf = buf;
       mp->linebuf = mp->cb.buf + CMDBUF_SIZE;
       mp->imgbuf = mp->data_left_ofs = mp->linebuf + line_size;
       mp->data_left_len = 0;
@@ -2073,7 +2074,7 @@ const pixma_config_t pixma_mp150_devices[] = {
   END_OF_DEVICE_LIST
 };
 
-void
+SANE_Status
 pixma_add_custom_mp150_device (const char *name,
                                const char *model,
                                const char *pid,
@@ -2087,8 +2088,21 @@ pixma_add_custom_mp150_device (const char *name,
 
    if (pixma_custom_mp150_devices_count == 0) {
       pixma_custom_mp150_devices = (pixma_config_t *)calloc (2, sizeof(pixma_config_t));
+      if (!pixma_custom_mp150_devices) {
+         PDBG (pixma_dbg (1,
+               "WARNING: unable to allocate custom MP150 device list\n"));
+         return SANE_STATUS_NO_MEM;
+      }
    } else {
-      pixma_custom_mp150_devices = realloc (pixma_custom_mp150_devices, sizeof(pixma_config_t) * (pixma_custom_mp150_devices_count + 2));
+      pixma_config_t *devices = realloc
+        (pixma_custom_mp150_devices,
+         sizeof(pixma_config_t) * (pixma_custom_mp150_devices_count + 2));
+      if (!devices) {
+        PDBG (pixma_dbg (1,
+              "WARNING: unable to grow custom MP150 device list\n"));
+        return SANE_STATUS_NO_MEM;
+      }
+      pixma_custom_mp150_devices = devices;
    }
 
    while (ccaps[lcaps] != NULL) {
@@ -2105,4 +2119,5 @@ pixma_add_custom_mp150_device (const char *name,
    pixma_config_t noelem = END_OF_DEVICE_LIST;
    pixma_custom_mp150_devices[(pixma_custom_mp150_devices_count + 1)] = noelem;
    pixma_custom_mp150_devices_count++;
+   return SANE_STATUS_GOOD;
 }

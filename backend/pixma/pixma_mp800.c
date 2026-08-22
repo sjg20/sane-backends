@@ -2262,9 +2262,11 @@ static int mp810_fill_buffer (pixma_t * s, pixma_imagebuf_t * ib)
 
     line_size = get_cis_ccd_line_size (s);
     proc_buf_size = (2 * calc_shifting (s) + 2) * line_size;
-    mp->cb.buf = realloc (mp->cb.buf, CMDBUF_SIZE + IMAGE_BLOCK_SIZE + proc_buf_size);
-    if (!mp->cb.buf)
+    uint8_t *buf = realloc (mp->cb.buf,
+                            CMDBUF_SIZE + IMAGE_BLOCK_SIZE + proc_buf_size);
+    if (!buf)
       return PIXMA_ENOMEM;
+    mp->cb.buf = buf;
     mp->linebuf = mp->cb.buf + CMDBUF_SIZE;
     mp->imgbuf = mp->data_left_ofs = mp->linebuf + line_size;
     mp->data_left_len = 0;
