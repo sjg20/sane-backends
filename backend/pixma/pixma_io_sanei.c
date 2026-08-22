@@ -198,7 +198,10 @@ attach (SANE_String_Const devname)
     return SANE_STATUS_NO_MEM;
   si->devname = strdup (devname);
   if (!si->devname)
-    return SANE_STATUS_NO_MEM;
+    {
+      free (si);
+      return SANE_STATUS_NO_MEM;
+    }
   si -> interface = INT_USB;
   si->next = first_scanner;
   first_scanner = si;
@@ -219,7 +222,10 @@ attach_bjnp (SANE_String_Const devname,
     return SANE_STATUS_NO_MEM;
   si->devname = strdup (devname);
   if (!si->devname)
-    return SANE_STATUS_NO_MEM;
+    {
+      free (si);
+      return SANE_STATUS_NO_MEM;
+    }
 
   si->cfg = cfg;
   snprintf(si->serial, sizeof(si->serial), "%s_%s", cfg->model, serial);
