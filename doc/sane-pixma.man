@@ -362,6 +362,97 @@ All further statements in the configuration file will be ignored.
 .IP \fIauto_detection=no\fR
 This line will cause auto-detection to be skipped.
 Explicitly defined network scanners will still be probed.
+.RE
+.PP
+For scanners that are not defined in the backend (perhaps due to them being new),
+they can now be added here. Currently, devices in the 'mp150' and 'iclass' categories may be defined.
+See the standard configuration file for some example entries, which all start with the descriptor 'device'.
+.RS
+.TP
+.I device mp150 NAME MODEL PID DPI FLAGS
+All office\-style models that include imageClass or iSENSYS in their name would normally be considered 'iclass'.
+.TP
+.I device iclass NAME MODEL PID DPI ADF_DPI WIDTH HEIGHT FLAGS
+Smaller, home\-use models will usually be catered for by the 'mp150' class.
+.P
+Items in the list are defined as follows:
+.TP
+.B NAME
+is a descriptive name for the device. It has no functional purpose but appears in messages and diagnostics.
+.TP
+.B MODEL
+is the official name of the device as reported by the device itself. This is used during device discovery.
+If the device is connected by USB, then this can be determined from the USB identifying information (e.g. from lsusb on Linux).
+.TP
+.B PID
+is USB product id and is used during device discovery.
+.TP
+.B DPI
+is the maximum supported resolution for the device in the x direction on the flatbed platen.
+.TP
+.B ADF_DPI
+is the maximum supported resolution for the device in the x direction in the document feeder. This may differ from the
+maximum for the flatbed (if it has one), and 0 may be specified to indicate it is the same as the flatbed.
+.TP
+.B WIDTH
+specifies the maximum scannable width in dots at 75dpi resolution.
+.TP
+.B HEIGHT
+specifies the maximum scannable height in dots at 75dpi resolution.
+.TP
+.B FLAGS
+Certain special behaviour may be indicated with this field by specifying any of the following, separated by any non-whitespace character:
+.RS
+.TP
+.B PIXMA_CAP_GRAY
+Gray scanning.
+.TP
+.B PIXMA_CAP_ADF
+Has an automatic document feeder.
+.TP
+.B PIXMA_CAP_48BIT
+Offers 48 bit colour.
+.TP
+.B PIXMA_CAP_GAMMA_TABLE
+Will accept a gamma table.
+.TP
+.B PIXMA_CAP_EVENTS
+Supports button events via the device control panel.
+.TP
+.B PIXMA_CAP_TPU
+Has a TPU, or transparency unit.
+.TP
+.B PIXMA_CAP_ADFDUP
+Document feeder can do duplex (double sided) scanning. Also defines PIXMA_CAP_ADF.
+.TP
+.B PIXMA_CAP_CIS
+Device has a Contact Image Sensor (LED) imager. Most modern devices use this.
+.TP
+.B PIXMA_CAP_CCD
+Device has a Charge\-Coupled Device imager. More common in older devices.
+.TP
+.B PIXMA_CAP_LINEART
+Supports lineart scanning mode.
+.TP
+.B PIXMA_CAP_NEGATIVE
+Supports negative scanning.
+.TP
+.B PIXMA_CAP_TPUIR
+Supports infrared scanning. Also defines PIXMA_CAP_TPU.
+.TP
+.B PIXMA_CAP_ADF_WAIT
+Supports wait\-on\-button\-press scanning.
+.TP
+.B PIXMA_CAP_ADF_JPEG
+Automatic document scanning returns JPEG data. Some modern devices do this.
+.TP
+.B PIXMA_CAP_JPEG
+All sources return JPEG scanning data.
+.TP
+.B PIXMA_CAP_GT_4096
+Gamma table support expects 4096 value 8\-bit tables.
+.RE
+.RE
 .SH USB SUPPORT
 USB scanners will be auto-detected and require no configuration.
 .SH NETWORKING SUPPORT
