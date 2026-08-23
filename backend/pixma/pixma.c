@@ -410,6 +410,7 @@ find_scanners (SANE_Bool local_only)
 
 nomem:
   PDBG (pixma_dbg (1, "WARNING:not enough memory for device list\n"));
+  cleanup_device_list ();
   return;
 }
 
