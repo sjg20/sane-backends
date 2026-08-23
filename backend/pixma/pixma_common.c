@@ -79,6 +79,30 @@ extern int pixma_custom_mp150_devices_count;
 extern pixma_config_t *pixma_custom_iclass_devices;
 extern int pixma_custom_iclass_devices_count;
 
+static void
+pixma_cleanup_custom_devices (void)
+{
+  int i;
+
+  for (i = 0; i < pixma_custom_mp150_devices_count; i++)
+    {
+      free ((void *) pixma_custom_mp150_devices[i].name);
+      free ((void *) pixma_custom_mp150_devices[i].model);
+    }
+  free (pixma_custom_mp150_devices);
+  pixma_custom_mp150_devices = NULL;
+  pixma_custom_mp150_devices_count = 0;
+
+  for (i = 0; i < pixma_custom_iclass_devices_count; i++)
+    {
+      free ((void *) pixma_custom_iclass_devices[i].name);
+      free ((void *) pixma_custom_iclass_devices[i].model);
+    }
+  free (pixma_custom_iclass_devices);
+  pixma_custom_iclass_devices = NULL;
+  pixma_custom_iclass_devices_count = 0;
+}
+
 static pixma_t *first_pixma = NULL;
 static time_t tstart_sec = 0;
 static uint32_t tstart_usec = 0;
@@ -772,6 +796,7 @@ pixma_cleanup (void)
   while (first_pixma)
     pixma_close (first_pixma);
   pixma_io_cleanup ();
+  pixma_cleanup_custom_devices ();
 }
 
 int
