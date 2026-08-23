@@ -2082,7 +2082,14 @@ sanei_bjnp_find_devices (const char **conf_devices,
 	  else
             {
               PDBG (bjnp_dbg (LOG_DEBUG, "sanei_bjnp_find_devices: Adding scanner from pixma.conf: %s\n", conf_devices[i]));
-              memcpy(uri, conf_devices[i], sizeof(uri));
+              int uri_len = snprintf (uri, sizeof (uri), "%s", conf_devices[i]);
+              if (uri_len < 0 || (size_t) uri_len >= sizeof (uri))
+                {
+                  PDBG (bjnp_dbg (LOG_NOTICE,
+                                  "sanei_bjnp_find_devices: URI is too long, skipping: %s\n",
+                                  conf_devices[i]));
+                  continue;
+                }
               add_timeout_to_uri(uri, timeout_default, sizeof(uri));
               add_scanner(&dev_no, uri, attach_bjnp, pixma_devices);
 	    }
