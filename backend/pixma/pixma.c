@@ -179,7 +179,7 @@ static SANE_Status config_attach_pixma(SANEI_Config __sane_unused__ * config,
 				       void __sane_unused__ *data)
 {
   if (*line == '#') return SANE_STATUS_GOOD;
-  if (strncmp(line, "device", 6) == 0) {
+  if (strncasecmp(line, "device", 6) == 0) {
     char *type_str = NULL;
 
     line = sanei_config_get_string(line + 6, &type_str);
@@ -188,7 +188,7 @@ static SANE_Status config_attach_pixma(SANEI_Config __sane_unused__ * config,
         return SANE_STATUS_INVAL;
     }
     PDBG (pixma_dbg (3, "Canon Type device is [%s].\n", type_str));
-    if (strcmp(type_str, "MP150") == 0) {
+    if (strcasecmp(type_str, "MP150") == 0) {
         char *name_str = NULL;
         char *model_str = NULL;
         char *pid_str = NULL;
@@ -230,7 +230,7 @@ static SANE_Status config_attach_pixma(SANEI_Config __sane_unused__ * config,
                                               dpi_str, capacity_str);
 
     }
-    else if (strcmp(type_str, "ICLASS") == 0) {
+    else if (strcasecmp(type_str, "ICLASS") == 0) {
         char *name_str = NULL;
         char *model_str = NULL;
         char *pid_str = NULL;
