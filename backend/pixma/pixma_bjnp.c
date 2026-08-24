@@ -1519,6 +1519,12 @@ bjnp_init_device_structure(int dn, bjnp_sockaddr_t *sa, bjnp_protocol_defs_t *pr
   device[dn].tcp_socket = -1;
 
   device[dn].addr = (bjnp_sockaddr_t *) malloc(sizeof ( bjnp_sockaddr_t) );
+  if (device[dn].addr == NULL)
+    {
+      PDBG (bjnp_dbg
+            (LOG_CRIT, "bjnp_init_device_structure: Cannot allocate scanner address\n"));
+      return -1;
+    }
   memset( device[dn].addr, 0, sizeof( bjnp_sockaddr_t ) );
   memcpy(device[dn].addr, sa, sa_size((bjnp_sockaddr_t *)sa) );
   device[dn].address_level = get_scanner_name(sa, name);
@@ -1536,7 +1542,9 @@ bjnp_init_device_structure(int dn, bjnp_sockaddr_t *sa, bjnp_protocol_defs_t *pr
     {
       PDBG (bjnp_dbg
             (LOG_CRIT, "bjnp_init_device_structure: Cannot read mac address, skipping this scanner\n"  ) );
-            device[dn].open = 0;
+      free (device[dn].addr);
+      device[dn].addr = NULL;
+      device[dn].open = 0;
       return -1;
     }
   device[dn].open = 1;
