@@ -62,6 +62,7 @@
  * Call this before any other sanei_bjnp function.
  */
 extern void sanei_bjnp_init (void);
+extern void sanei_bjnp_cleanup (void);
 
 /** Find scanners responding to a BJNP broadcast.
  *

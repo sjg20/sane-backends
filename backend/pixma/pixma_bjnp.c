@@ -1737,6 +1737,20 @@ static void bjnp_close_tcp(int devno)
   device[devno].open = 0;
 }
 
+static void
+bjnp_cleanup_devices (void)
+{
+  int i;
+
+  for (i = 0; i < bjnp_no_devices; i++)
+    {
+      bjnp_close_tcp (i);
+      bjnp_free_device_structure (i);
+    }
+
+  bjnp_no_devices = 0;
+}
+
 static BJNP_Status
 bjnp_allocate_device (SANE_String_Const devname,
                       SANE_Int * dn, char *resulting_host)
@@ -2000,7 +2014,13 @@ extern void
 sanei_bjnp_init (void)
 {
   DBG_INIT();
-  bjnp_no_devices = 0;
+  bjnp_cleanup_devices ();
+}
+
+extern void
+sanei_bjnp_cleanup (void)
+{
+  bjnp_cleanup_devices ();
 }
 
 /**
@@ -2048,7 +2068,7 @@ sanei_bjnp_find_devices (const char **conf_devices,
   memset( &scanner_sa, 0 ,sizeof( scanner_sa ) );
   PDBG (bjnp_dbg (LOG_INFO, "sanei_bjnp_find_devices, pixma backend version: %d.%d.%d\n",
 	PIXMA_VERSION_MAJOR, PIXMA_VERSION_MINOR, PIXMA_VERSION_BUILD));
-  bjnp_no_devices = 0;
+  bjnp_cleanup_devices ();
 
   for (i=0; i < BJNP_SOCK_MAX; i++)
     {
