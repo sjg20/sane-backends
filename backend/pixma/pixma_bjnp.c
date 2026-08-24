@@ -297,7 +297,6 @@ get_protocol_family( const bjnp_sockaddr_t *sa)
 static void
 get_address_info ( const bjnp_sockaddr_t *addr, char * addr_string, int *port)
 {
-  char tmp_addr[BJNP_HOST_MAX];
   if ( addr->addr.sa_family == AF_INET)
     {
       inet_ntop( AF_INET, &(addr -> ipv4.sin_addr.s_addr), addr_string, BJNP_HOST_MAX);
@@ -306,10 +305,14 @@ get_address_info ( const bjnp_sockaddr_t *addr, char * addr_string, int *port)
 #ifdef ENABLE_IPV6
   else if (addr->addr.sa_family == AF_INET6)
     {
+      char tmp_addr[INET6_ADDRSTRLEN];
       inet_ntop( AF_INET6, addr -> ipv6.sin6_addr.s6_addr, tmp_addr, sizeof(tmp_addr) );
 
       if (IN6_IS_ADDR_LINKLOCAL( &(addr -> ipv6.sin6_addr) ) )
-          sprintf(addr_string, "[%s%%%d]", tmp_addr, addr -> ipv6.sin6_scope_id);
+          snprintf (addr_string, BJNP_HOST_MAX, "[%s%%%d]", tmp_addr,
+                    addr -> ipv6.sin6_scope_id);
+      else
+          snprintf (addr_string, BJNP_HOST_MAX, "[%s]", tmp_addr);
 
       *port = ntohs (addr->ipv6.sin6_port);
     }
