@@ -2014,6 +2014,12 @@ sanei_bjnp_init (void)
   bjnp_cleanup_devices ();
 }
 
+extern void
+sanei_bjnp_cleanup (void)
+{
+  bjnp_cleanup_devices ();
+}
+
 /**
  * Find devices that implement the bjnp protocol
  *

@@ -649,6 +649,7 @@ pixma_io_cleanup (void)
   while (first_io)
     pixma_disconnect (first_io);
   clear_scanner_list ();
+  sanei_bjnp_cleanup ();
 #if HAVE_LIBCURL
   curl_global_cleanup ();
 #endif
