@@ -170,7 +170,10 @@ static SANE_Status config_attach_pixma_generic (const char *line)
     int i;
     for (i=0; i < (MAX_CONF_DEVICES -1); i++) {
       if (conf_devices[i] == NULL) {
-        conf_devices[i] = strdup(line);
+        char *copy = strdup(line);
+        if (copy == NULL)
+          return SANE_STATUS_NO_MEM;
+        conf_devices[i] = copy;
         return SANE_STATUS_GOOD;
       }
     }
