@@ -1574,7 +1574,8 @@ jpeg_skip_input_data(j_decompress_ptr cinfo, long num_bytes)
       while (num_bytes > (long)mgr->jpeg.bytes_in_buffer)
         {
            num_bytes -= (long)mgr->jpeg.bytes_in_buffer;
-           jpeg_fill_input_buffer(cinfo);
+           if (!jpeg_fill_input_buffer(cinfo))
+             ERREXIT(cinfo, JERR_INPUT_EOF);
         }
 
       /* Update jpeg info structure with leftover */
