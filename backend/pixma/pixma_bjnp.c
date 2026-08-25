@@ -2121,7 +2121,13 @@ sanei_bjnp_find_devices (const char **conf_devices,
                                   conf_devices[i]));
                   continue;
                 }
-              add_timeout_to_uri(uri, timeout_default, sizeof(uri));
+              if (add_timeout_to_uri(uri, timeout_default, sizeof(uri)) != 0)
+                {
+                  PDBG (bjnp_dbg (LOG_NOTICE,
+                                  "sanei_bjnp_find_devices: Failed to add timeout to URI, skipping: %s\n",
+                                  conf_devices[i]));
+                  continue;
+                }
               add_scanner(&dev_no, uri, attach_bjnp, pixma_devices);
 	    }
         }
