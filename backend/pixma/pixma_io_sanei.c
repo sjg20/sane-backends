@@ -46,6 +46,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <limits.h>		/* INT_MAX */
+#include <stdint.h>
 #ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
 #endif
@@ -118,7 +119,15 @@ static size_t
 canon_http_write_cb (void *ptr, size_t size, size_t nmemb, void *userdata)
 {
   pixma_io_t *io = userdata;
+
+  if (size != 0 && nmemb > SIZE_MAX / size)
+    return 0;
+
   size_t len = size * nmemb;
+
+  if (len > SIZE_MAX - io->http_len)
+    return 0;
+
   unsigned char *data = realloc (io->http_data, io->http_len + len);
   if (data == NULL)
     return 0;
