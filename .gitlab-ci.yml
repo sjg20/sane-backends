@@ -42,14 +42,18 @@ make-dist:
   - eval "(set -x; make -w -O -j2 -k $MAKE_FLAGS)"
   # Run the test suite (gated on RUN_TESTS) and emit a JUnit report.
   # The report is generated even on failure so results render in the
-  # Tests tab.
+  # Tests tab; VERBOSE=1 prints failing test logs to the job trace.
   - |
     if test "$RUN_TESTS" = "yes"; then
-      (set -x; make -w -O -j2 check) || rc=$?
+      (set -x; make -w -O -j2 check VERBOSE=1) || rc=$?
       ../tools/junit-from-trs.sh . > junit_report.xml
       exit ${rc:-0}
     fi
   artifacts:
+    when: always
+    paths:
+    - build/testsuite/**/*.log
+    - build/testsuite/**/test-suite.log
     reports:
       junit: build/junit_report.xml
 
@@ -76,10 +80,13 @@ debian-12-full:
   - rm -rf lists && mkdir lists && mv build/doc/*.html lists/
   - cd build/doc && doxygen doxygen-sanei.conf && mv sanei-html ../../doc
   artifacts:
+    when: always
     paths:
     - sane-backends-*.tar.gz
     - lists
     - doc/sanei-html
+    - build/testsuite/**/*.log
+    - build/testsuite/**/test-suite.log
     reports:
       junit: build/junit_report.xml
     expire_in: 1 day
