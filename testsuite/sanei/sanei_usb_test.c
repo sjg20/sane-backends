@@ -846,7 +846,17 @@ main (int __sane_unused__ argc, char **argv)
 #endif
 
   /* start sanei_usb */
-  assert (test_init (1));
+  if (!test_init (1))
+    {
+      /* sanei_usb_init() failed.  On distros whose libusb is built
+       * without udev (e.g. Alpine/musl), libusb_init() requires
+       * /dev/bus/usb to exist and fails with LIBUSB_ERROR_OTHER when
+       * it is absent, as is the case in usb-less CI runners.  Skip
+       * rather than abort: this is an environment limitation, not a
+       * regression.  Automake treats exit status 77 as SKIP. */
+      printf ("cannot initialize usb, skipping test\n");
+      return 77;
+    }
 
   /* test timeout function */
   assert (test_timeout ());

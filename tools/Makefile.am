@@ -35,6 +35,7 @@ EXTRA_DIST += style-check.sh
 EXTRA_DIST += create-changelog.sh
 EXTRA_DIST += update-upstreams.sh
 EXTRA_DIST += epson2usb.pl
+EXTRA_DIST += junit-from-trs.sh
 
 sane_find_scanner_SOURCES = sane-find-scanner.c
 if have_usblib

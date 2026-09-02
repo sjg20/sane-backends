@@ -40,6 +40,22 @@ make-dist:
   - tar xzf ../sane-backends-*.tar.gz --strip-components=1
   - (set -x; ./configure $CONFIGURE_OPTS)
   - eval "(set -x; make -w -O -j2 -k $MAKE_FLAGS)"
+  # Run the test suite (gated on RUN_TESTS) and emit a JUnit report.
+  # The report is generated even on failure so results render in the
+  # Tests tab; VERBOSE=1 prints failing test logs to the job trace.
+  - |
+    if test "$RUN_TESTS" = "yes"; then
+      (set -x; make -w -O -j2 check VERBOSE=1) || rc=$?
+      ../tools/junit-from-trs.sh . > junit_report.xml
+      exit ${rc:-0}
+    fi
+  artifacts:
+    when: always
+    paths:
+    - build/testsuite/**/*.log
+    - build/testsuite/**/test-suite.log
+    reports:
+      junit: build/junit_report.xml
 
 debian-11-mini:
   image: $REGISTRY_HUB:debian-bullseye-mini
@@ -57,16 +73,22 @@ debian-12-full:
   variables:
     CONFIGURE_OPTS: "$CONFIGURE_MINI $CONFIGURE_FULL"
     MAKE_FLAGS: "CFLAGS=-Werror CXXFLAGS=-Werror"
+    RUN_TESTS: "yes"
   <<: *compile_definition
   after_script:
   - make -C build/doc html-pages
   - rm -rf lists && mkdir lists && mv build/doc/*.html lists/
   - cd build/doc && doxygen doxygen-sanei.conf && mv sanei-html ../../doc
   artifacts:
+    when: always
     paths:
     - sane-backends-*.tar.gz
     - lists
     - doc/sanei-html
+    - build/testsuite/**/*.log
+    - build/testsuite/**/test-suite.log
+    reports:
+      junit: build/junit_report.xml
     expire_in: 1 day
 
 fedora-39-clang:
@@ -74,6 +96,7 @@ fedora-39-clang:
   variables:
     CONFIGURE_OPTS: "$CONFIGURE_MINI $CONFIGURE_FULL"
     MAKE_FLAGS: "CFLAGS='-Werror -Wno-error=unused-but-set-variable' CXXFLAGS='-Werror'"
+    RUN_TESTS: "yes"
   <<: *compile_definition
 
 alpine-3.18-musl:
@@ -81,6 +104,7 @@ alpine-3.18-musl:
   variables:
     CONFIGURE_OPTS: "$CONFIGURE_MINI $CONFIGURE_FULL"
     MAKE_FLAGS: "CFLAGS='-Werror -Wno-pedantic' CXXFLAGS=-Werror"
+    RUN_TESTS: "yes"
   <<: *compile_definition
 
 ubuntu-23.10:
@@ -88,6 +112,7 @@ ubuntu-23.10:
   variables:
     CONFIGURE_OPTS: "$CONFIGURE_MINI $CONFIGURE_FULL"
     MAKE_FLAGS: "CFLAGS=-Werror CXXFLAGS=-Werror"
+    RUN_TESTS: "yes"
   <<: *compile_definition
 
 # This snapshot stage job makes sure that the source tarball has all
