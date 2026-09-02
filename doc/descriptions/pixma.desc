@@ -310,9 +310,21 @@
 :status :untested
 :comment "Testers needed!"
 
+:model "PIXMA GX4000i series"
+:interface "USB Ethernet WiFi"
+:usbid "0x04a9" "0x1115"
+:status :untested
+:comment "Testers needed!"
+
 :model "PIXMA GX6000 Series"
 :interface "USB"
 :usbid "0x04a9" "0x18a6"
+:status :untested
+:comment "Testers needed!"
+
+:model "PIXMA GX6100 series"
+:interface "USB Ethernet WiFi"
+:usbid "0x04a9" "0x115e"
 :status :untested
 :comment "Testers needed!"
 
@@ -325,6 +337,18 @@
 :model "PIXMA GX7000"
 :interface "USB"
 :usbid "0x04a9" "0x18a8"
+:status :untested
+:comment "Testers needed!"
+
+:model "PIXMA GX7100 series"
+:interface "USB Ethernet WiFi"
+:usbid "0x04a9" "0x115f"
+:status :untested
+:comment "Testers needed!"
+
+:model "PIXMA GX7100i series"
+:interface "USB Ethernet WiFi"
+:usbid "0x04a9" "0x117c"
 :status :untested
 :comment "Testers needed!"
 
@@ -1031,9 +1055,21 @@
 :status :untested
 :comment "Testers needed!"
 
+:model "TC-21M"
+:interface "USB Ethernet WiFi"
+:usbid "0x04a9" "0x1172"
+:status :untested
+:comment "Testers needed!"
+
 :model "TC-5200M"
 :interface "USB"
 :usbid "0x04a9" "0x18ff"
+:status :untested
+:comment "Testers needed!"
+
+:model "TC-5210M"
+:interface "USB Ethernet WiFi"
+:usbid "0x04a9" "0x1174"
 :status :untested
 :comment "Testers needed!"
 
@@ -1058,6 +1094,12 @@
 :model "PIXMA TR7000 Series"
 :interface "USB"
 :usbid "0x04a9" "0x18b9"
+:status :untested
+:comment "Testers needed!"
+
+:model "PIXMA TR7100 series"
+:interface "USB WiFi"
+:usbid "0x04a9" "0x116e"
 :status :untested
 :comment "Testers needed!"
 
@@ -1181,6 +1223,24 @@
 :status :untested
 :comment "Testers needed!"
 
+:model "PIXMA TS4000 series"
+:interface "USB WiFi"
+:usbid "0x04a9" "0x119a"
+:status :untested
+:comment "Testers needed!"
+
+:model "PIXMA TS4100i series"
+:interface "USB WiFi"
+:usbid "0x04a9" "0x1180"
+:status :untested
+:comment "Testers needed!"
+
+:model "PIXMA TS4300 series"
+:interface "USB WiFi"
+:usbid "0x04a9" "0x1170"
+:status :untested
+:comment "Testers needed!"
+
 :model "PIXMA TS5000 Series"
 :interface "USB WiFi"
 :usbid "0x04a9" "0x1802"
@@ -1220,6 +1280,18 @@
 :model "PIXMA TS5400 Series"
 :interface "USB WiFi"
 :usbid "0x04a9" "0x18d8"
+:status :untested
+:comment "Testers needed!"
+
+:model "PIXMA TS5500 series"
+:interface "USB WiFi"
+:usbid "0x04a9" "0x116f"
+:status :untested
+:comment "Testers needed!"
+
+:model "PIXMA TS5630 series"
+:interface "USB WiFi"
+:usbid "0x04a9" "0x1181"
 :status :untested
 :comment "Testers needed!"
 
@@ -1289,6 +1361,18 @@
 :status :good
 :comment "All resolutions supported (up to 1200DPI). WiFi not tested by Pixma as yet."
 
+:model "PIXMA TS6500 series"
+:interface "USB WiFi"
+:usbid "0x04a9" "0x117e"
+:status :untested
+:comment "Testers needed!"
+
+:model "PIXMA TS6500i series"
+:interface "USB WiFi"
+:usbid "0x04a9" "0x117f"
+:status :untested
+:comment "Testers needed!"
+
 :model "PIXMA TS6630 series"
 :interface "USB WiFi"
 :usbid "0x04a9" "0x114e"
@@ -1325,9 +1409,21 @@
 :status :untested
 :comment "Testers needed!"
 
+:model "PIXMA TS7500i series"
+:interface "USB WiFi"
+:usbid "0x04a9" "0x117d"
+:status :untested
+:comment "Testers needed!"
+
 :model "PIXMA TS7530 Series"
 :interface "USB"
 :usbid "0x04a9" "0x18e1"
+:status :untested
+:comment "Testers needed!"
+
+:model "PIXMA TS7630 series"
+:interface "USB WiFi"
+:usbid "0x04a9" "0x117a"
 :status :untested
 :comment "Testers needed!"
 
@@ -1445,6 +1541,12 @@
 :status :untested
 :comment "Testers needed!"
 
+:model "PIXMA TS8930 series"
+:interface "USB WiFi"
+:usbid "0x04a9" "0x1177"
+:status :untested
+:comment "Testers needed!"
+
 :model "PIXMA TS9000 Series"
 :interface "USB WiFi"
 :usbid "0x04a9" "0x179f"
@@ -1535,9 +1637,21 @@
 :status :untested
 :comment "Testers needed!"
 
+:model "PIXUS XK140 series"
+:interface "USB WiFi"
+:usbid "0x04a9" "0x1179"
+:status :untested
+:comment "Testers needed!"
+
 :model "PIXUS XK500 Series"
 :interface "USB WiFi"
 :usbid "0x04a9" "0x18df"
+:status :untested
+:comment "Testers needed!"
+
+:model "PIXUS XK510 series"
+:interface "USB WiFi"
+:usbid "0x04a9" "0x1178"
 :status :untested
 :comment "Testers needed!"
 
