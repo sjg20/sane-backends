@@ -681,11 +681,6 @@
 */
 
 /* ------------------------------------------------------------------------- */
-/* if JPEG support is not enabled in sane.h, we setup our own defines */
-#ifndef SANE_FRAME_JPEG
-#define SANE_FRAME_JPEG 0x0B
-#define SANE_JPEG_DISABLED 1
-#endif
 /* ------------------------------------------------------------------------- */
 #define STRING_FLATBED SANE_I18N("Flatbed")
 #define STRING_ADFFRONT SANE_I18N("ADF Front")
@@ -1700,9 +1695,6 @@ init_vpd (struct fujitsu *s)
 
   s->has_comp_JPG1 = get_IN_compression_JPG_BASE (in);
   DBG (15, "  compression JPG1: %d\n", s->has_comp_JPG1);
-#ifdef SANE_JPEG_DISABLED
-  DBG (15, "  (Disabled)\n");
-#endif
 
   s->has_comp_JPG2 = get_IN_compression_JPG_EXT (in);
   DBG (15, "  compression JPG2: %d\n", s->has_comp_JPG2);
@@ -3620,16 +3612,14 @@ sane_get_option_descriptor (SANE_Handle handle, SANE_Int option)
     s->compress_list[i++]=STRING_NONE;
 
     if(s->has_comp_JPG1){
-#ifndef SANE_JPEG_DISABLED
       s->compress_list[i++]=STRING_JPEG;
-#endif
     }
 
     s->compress_list[i]=NULL;
 
     opt->name = "compression";
     opt->title = SANE_I18N ("Compression");
-    opt->desc = SANE_I18N ("Enable compressed data. May crash your front-end program");
+    opt->desc = SANE_I18N ("Enable compressed data. Needs a frontend which understands JPEG frames");
     opt->type = SANE_TYPE_STRING;
     opt->constraint_type = SANE_CONSTRAINT_STRING_LIST;
     opt->constraint.string_list = s->compress_list;
@@ -3660,9 +3650,7 @@ sane_get_option_descriptor (SANE_Handle handle, SANE_Int option)
     if(s->has_comp_JPG1){
       s->compress_arg_range.min=0;
       s->compress_arg_range.max=7;
-#ifndef SANE_JPEG_DISABLED
       opt->cap = SANE_CAP_SOFT_SELECT | SANE_CAP_SOFT_DETECT;
-#endif
 
       if(s->compress != COMP_JPEG){
         opt->cap |= SANE_CAP_INACTIVE;

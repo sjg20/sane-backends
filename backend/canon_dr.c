@@ -433,11 +433,6 @@
 */
 
 /* ------------------------------------------------------------------------- */
-/* if JPEG support is not enabled in sane.h, we setup our own defines */
-#ifndef SANE_FRAME_JPEG
-#define SANE_FRAME_JPEG 0x0B
-#define SANE_JPEG_DISABLED 1
-#endif
 /* ------------------------------------------------------------------------- */
 #define STRING_FLATBED SANE_I18N("Flatbed")
 #define STRING_ADFFRONT SANE_I18N("ADF Front")
@@ -2699,16 +2694,14 @@ sane_get_option_descriptor (SANE_Handle handle, SANE_Int option)
     s->compress_list[i++]=STRING_NONE;
 
     if(s->has_comp_JPEG){
-#ifndef SANE_JPEG_DISABLED
       s->compress_list[i++]=STRING_JPEG;
-#endif
     }
 
     s->compress_list[i]=NULL;
 
     opt->name = "compression";
     opt->title = "Compression";
-    opt->desc = "Enable compressed data. May crash your front-end program";
+    opt->desc = "Enable compressed data. Needs a frontend which understands JPEG frames";
     opt->type = SANE_TYPE_STRING;
     opt->constraint_type = SANE_CONSTRAINT_STRING_LIST;
     opt->constraint.string_list = s->compress_list;
