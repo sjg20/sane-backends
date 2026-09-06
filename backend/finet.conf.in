@@ -1,0 +1,15 @@
+# finet.conf -- configuration for the finet backend (Ricoh fi-8000 series
+# network scanners)
+#
+# The backend finds scanners on the local network automatically by
+# broadcasting a probe, so usually this file needs no entries.
+#
+# List a scanner here if it is on another subnet, or to avoid the
+# broadcast, by IP address or host name, optionally with a port:
+#
+# device 192.168.1.50
+# device scanner.example.com:80
+#
+# To turn off the automatic broadcast search, uncomment:
+#
+# option no-discovery

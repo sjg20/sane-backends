@@ -72,7 +72,7 @@ BACKEND_CONFS= abaton.conf agfafocus.conf apple.conf artec.conf \
 	       canon_pp.conf cardscan.conf coolscan2.conf coolscan3.conf \
 	       coolscan.conf dc210.conf dc240.conf dc25.conf \
 	       dell1600n_net.conf dmc.conf epjitsu.conf epson2.conf \
-	       epson.conf epsonds.conf escl.conf fujitsu.conf genesys.conf \
+	       epson.conf epsonds.conf escl.conf finet.conf fujitsu.conf genesys.conf \
 	       gphoto2.conf gt68xx.conf hp3900.conf hp4200.conf hp5400.conf \
 	       hp.conf hpsj5s.conf hs2p.conf ibm.conf kodak.conf kodakaio.conf\
 	       kvs1025.conf leo.conf lexmark.conf lexmark_x2600.conf \
@@ -167,7 +167,7 @@ be_convenience_libs = libabaton.la libagfafocus.la \
     libcoolscan2.la libcoolscan3.la libdc25.la \
     libdc210.la libdc240.la libdell1600n_net.la \
     libdmc.la libdll.la libdll_preload.la libepjitsu.la libepson.la \
-    libepson2.la libepsonds.la libescl.la libfujitsu.la libgenesys.la \
+    libepson2.la libepsonds.la libescl.la libfinet.la libfujitsu.la libgenesys.la \
     libgphoto2_i.la libgt68xx.la libhp.la \
     libhp3500.la libhp3900.la libhp4200.la \
     libhp5400.la libhp5590.la libhpljm1005.la \
@@ -201,7 +201,7 @@ be_dlopen_libs = libsane-abaton.la libsane-agfafocus.la \
     libsane-coolscan2.la libsane-coolscan3.la libsane-dc25.la \
     libsane-dc210.la libsane-dc240.la libsane-dell1600n_net.la \
     libsane-dmc.la libsane-epjitsu.la libsane-epson.la \
-    libsane-epson2.la libsane-epsonds.la libsane-escl.la libsane-fujitsu.la \
+    libsane-epson2.la libsane-epsonds.la libsane-escl.la libsane-finet.la libsane-fujitsu.la \
     libsane-genesys.la libsane-gphoto2.la libsane-gt68xx.la libsane-hp.la \
     libsane-hp3500.la libsane-hp3900.la libsane-hp4200.la \
     libsane-hp5400.la libsane-hp5590.la libsane-hpljm1005.la \
@@ -653,6 +653,23 @@ endif
 endif
 endif
 EXTRA_DIST += escl.conf.in
+
+if have_libcurl
+libfinet_la_SOURCES = finet.c
+libfinet_la_CPPFLAGS = $(AM_CPPFLAGS) $(JPEG_CFLAGS) $(libcurl_CFLAGS) -DBACKEND_NAME=finet
+
+nodist_libsane_finet_la_SOURCES = finet-s.c
+libsane_finet_la_CPPFLAGS = $(AM_CPPFLAGS) $(JPEG_CFLAGS) $(libcurl_CFLAGS) -DBACKEND_NAME=finet
+libsane_finet_la_LDFLAGS = $(DIST_SANELIBS_LDFLAGS)
+libsane_finet_la_LIBADD = $(COMMON_LIBS) \
+    libfinet.la \
+    ../sanei/sanei_init_debug.lo \
+    ../sanei/sanei_constrain_value.lo \
+    ../sanei/sanei_config.lo \
+    sane_strstatus.lo \
+    $(JPEG_LIBS) $(libcurl_LIBS) $(PTHREAD_LIBS)
+endif
+EXTRA_DIST += finet.conf.in
 
 libepjitsu_la_SOURCES = epjitsu.c epjitsu.h epjitsu-cmd.h
 libepjitsu_la_CPPFLAGS = $(AM_CPPFLAGS) -DBACKEND_NAME=epjitsu
