@@ -1,0 +1,98 @@
+.TH sane\-finet 5 "6 Sep 2026" "@PACKAGEVERSION@" "SANE Scanner Access Now Easy"
+.IX sane\-finet
+.SH NAME
+sane\-finet \- SANE backend for the network interface of Ricoh fi\-8000 series scanners
+.SH DESCRIPTION
+The
+.B sane\-finet
+library implements a SANE (Scanner Access Now Easy) backend which drives
+Ricoh (formerly Fujitsu/PFU) fi\-8000 series document scanners, such as
+the fi\-8950, through their Ethernet interface. It uses the HTTP/JSON
+protocol which the vendor's PaperStream IP Net driver speaks; no vendor
+software is needed.
+.PP
+The scanner always delivers colour JPEG images at the requested
+resolution, so greyscale and lineart output are produced by the backend.
+.SH CONFIGURATION
+The backend finds scanners on the local network automatically, by
+broadcasting a probe, so usually no configuration is needed. A scanner
+on another subnet, or one that should be used without the broadcast, is
+listed in
+.I @CONFIGDIR@/finet.conf
+by address:
+.PP
+.RS
+device 192.168.1.50
+.br
+device scanner.example.com:80
+.RE
+.PP
+A scanner can also be opened directly with a device name of the form
+.IR finet:address .
+The line
+.B option no-discovery
+in the configuration file turns off the automatic search.
+.SH OPTIONS
+.B \-\-source
+selects
+.IR "ADF Front" ", " "ADF Back" " or " "ADF Duplex" ;
+in duplex each sheet gives two images. The feeder runs continuously
+from the first
+.BR sane_start ()
+until the hopper is empty or the scan is cancelled. The usual mode,
+resolution and
+scan area options follow. The scanner only produces colour JPEG, so
+greyscale and lineart are made from that in the backend, lineart with
+.BR \-\-threshold .
+.PP
+.B \-\-auto\-size
+makes the backend detect each sheet's size and crop the image to it,
+instead of using the scan area. The sheet is scanned against the
+scanner's black backing so the page edges can be found, and the
+scan-area and background-colour options are then ignored.
+.PP
+.B \-\-deskew
+lets the scanner straighten skewed pages.
+.B \-\-brightness
+and
+.B \-\-contrast
+run from \-127 to 127 and are applied while decoding.
+.PP
+.B \-\-compression
+hands the scanner's JPEG over as a SANE_FRAME_JPEG frame instead of
+decoding it (colour only, and only when no brightness or contrast
+adjustment is set), and
+.B \-\-jpeg\-quality
+sets the quality of the JPEG the scanner produces.
+.B \-\-bg\-color
+chooses the white or black backing seen beyond the edges of the paper.
+.B \-\-df\-detect
+stops the scan when the ultrasonic sensor finds two sheets feeding at
+once, and
+.B \-\-prepick
+feeds the next sheet to the pick position early, for speed.
+.SH FILES
+.TP
+.I @CONFIGDIR@/finet.conf
+The backend configuration file.
+.TP
+.I @LIBDIR@/libsane\-finet.a
+The static library implementing this backend.
+.TP
+.I @LIBDIR@/libsane\-finet.so
+The shared library implementing this backend (present on systems that
+support dynamic loading).
+.SH ENVIRONMENT
+.TP
+.B SANE_CONFIG_DIR
+This environment variable specifies the list of directories that may
+contain the configuration file.
+.TP
+.B SANE_DEBUG_FINET
+If the library was compiled with debug support enabled, this
+environment variable controls the debug level for this backend.
+.SH "SEE ALSO"
+.BR sane (7),
+.BR sane\-fujitsu (5)
+.SH AUTHOR
+Simon Glass
