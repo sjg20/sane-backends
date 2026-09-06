@@ -175,16 +175,30 @@ typedef enum
     SANE_FRAME_RGB,	/* pixel-interleaved red/green/blue bands */
     SANE_FRAME_RED,	/* red band only */
     SANE_FRAME_GREEN,	/* green band only */
-    SANE_FRAME_BLUE 	/* blue band only */
+    SANE_FRAME_BLUE, 	/* blue band only */
+
+    /* Additional frame types. Backends only send these when a frontend
+       has asked for them through an option, since not every frontend
+       understands them. Frontends should reject frame types they do not
+       understand. */
+
+    /* A complete baseline JPEG file. pixels_per_line and lines give the
+       image size, depth is 8, and bytes_per_line is the length of an
+       uncompressed line (3 * pixels_per_line for colour). The number of
+       bytes in the frame is not known in advance: sane_read() must be
+       called until it returns SANE_STATUS_EOF. */
+    SANE_FRAME_JPEG = 0x0B
   }
 SANE_Frame;
+
+/* so that code can test for the frame types added after SANE 1.0 */
+#define SANE_FRAME_JPEG SANE_FRAME_JPEG
 
 /* push remaining types down to match existing backends */
 /* these are to be exposed in a later version of SANE */
 /* most front-ends will require updates to understand them */
 #if 0
 #define SANE_FRAME_TEXT  0x0A  /* backend specific textual data */
-#define SANE_FRAME_JPEG  0x0B  /* complete baseline JPEG file */
 #define SANE_FRAME_G31D  0x0C  /* CCITT Group 3 1-D Compressed (MH) */
 #define SANE_FRAME_G32D  0x0D  /* CCITT Group 3 2-D Compressed (MR) */
 #define SANE_FRAME_G42D  0x0E  /* CCITT Group 4 2-D Compressed (MMR) */
