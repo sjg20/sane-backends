@@ -1359,18 +1359,29 @@ advance (Image * image)
   return image->data;
 }
 
+/* the name of a frame type, for messages */
+static const char *
+frame_name (SANE_Frame format)
+{
+  static const char *names[] = { "gray", "RGB", "red", "green", "blue" };
+
+  if (format <= SANE_FRAME_BLUE)
+    return names[format];
+  if (format == SANE_FRAME_JPEG)
+    return "JPEG";
+  return "Unknown";
+}
+
 static SANE_Status
 scan_it (FILE *ofp, void* pw)
 {
   int i, len, first_frame = 1, offset = 0, must_buffer = 0;
+  int raw_jpeg = 0;		/* the frame is a JPEG file, written as is */
   uint64_t hundred_percent = 0;
   SANE_Byte min = 0xff, max = 0;
   SANE_Parameters parm;
   SANE_Status status;
   Image image = { 0, 0, 0, 0, 0, 0 };
-  static const char *format_name[] = {
-    "gray", "RGB", "red", "green", "blue"
-  };
   uint64_t total_bytes = 0, expected_bytes;
   SANE_Int hang_over = -1;
 #ifdef HAVE_LIBPNG
@@ -1434,7 +1445,7 @@ scan_it (FILE *ofp, void* pw)
 	    }
 
 	  fprintf (stderr, "%s: acquiring %s frame\n", prog_name,
-	   parm.format <= SANE_FRAME_BLUE ? format_name[parm.format]:"Unknown");
+		   frame_name (parm.format));
 	}
 
       if (first_frame)
@@ -1508,6 +1519,35 @@ scan_it (FILE *ofp, void* pw)
 		}
 	      break;
 
+	    case SANE_FRAME_JPEG:
+	      /* the backend hands over the scanner's JPEG file as it is,
+		 so it can only go into a JPEG file or a PDF */
+	      raw_jpeg = 1;
+	      switch (output_format)
+		{
+		case OUTPUT_JPEG:
+		  break;
+#ifdef HAVE_LIBJPEG
+		case OUTPUT_PDF:
+		case OUTPUT_PDF_PER_PAGE:
+		  sane_pdf_start_page (pw, parm.pixels_per_line, parm.lines,
+				       resolution_value,
+				       parm.bytes_per_line
+				       == 3 * parm.pixels_per_line
+				       ? SANE_PDF_IMAGE_COLOR
+				       : SANE_PDF_IMAGE_GRAY,
+				       SANE_PDF_ROTATE_OFF);
+		  break;
+#endif
+		default:
+		  fprintf (stderr, "%s: the backend sends JPEG frames, which "
+			   "can only be written with --format=jpeg or pdf\n",
+			   prog_name);
+		  status = SANE_STATUS_UNSUPPORTED;
+		  goto cleanup;
+		}
+	      break;
+
             default:
 	      break;
 	    }
@@ -1555,18 +1595,21 @@ scan_it (FILE *ofp, void* pw)
 	}
       hundred_percent = ((uint64_t)parm.bytes_per_line) * parm.lines
 	* ((parm.format == SANE_FRAME_RGB || parm.format == SANE_FRAME_GRAY) ? 1:3);
+      if (raw_jpeg)
+	hundred_percent = 0;
 
       while (1)
 	{
 	  double progr;
 	  status = sane_read (device, buffer, buffer_size, &len);
 	  total_bytes += (SANE_Word) len;
-          progr = ((total_bytes * 100.) / (double) hundred_percent);
+          progr = hundred_percent
+	    ? ((total_bytes * 100.) / (double) hundred_percent) : 0.;
           if (progr > 100.)
 	    progr = 100.;
           if (progress)
             {
-              if (parm.lines >= 0)
+              if (parm.lines >= 0 && hundred_percent)
                 fprintf(stderr, "Progress: %3.1f%%\r", progr);
               else
                 fprintf(stderr, "Progress: (unknown)\r");
@@ -1640,6 +1683,9 @@ scan_it (FILE *ofp, void* pw)
 	    }
 	  else			/* ! must_buffer */
 	    {
+	      if (raw_jpeg)
+		fwrite (buffer, 1, len, ofp);
+	      else
 #ifdef HAVE_LIBPNG
 	      if (output_format == OUTPUT_PNG)
 	        {
@@ -1835,7 +1881,7 @@ scan_it (FILE *ofp, void* pw)
 	png_write_end(png_ptr, info_ptr);
 #endif
 #ifdef HAVE_LIBJPEG
-    if(output_format == OUTPUT_JPEG || output_format == OUTPUT_PDF || output_format == OUTPUT_PDF_PER_PAGE)
+    if(!raw_jpeg && (output_format == OUTPUT_JPEG || output_format == OUTPUT_PDF || output_format == OUTPUT_PDF_PER_PAGE))
 	jpeg_finish_compress(&cinfo);
 #endif
 
@@ -1851,7 +1897,8 @@ cleanup:
 #endif
 #ifdef HAVE_LIBJPEG
   if(output_format == OUTPUT_JPEG || output_format == OUTPUT_PDF || output_format == OUTPUT_PDF_PER_PAGE) {
-    jpeg_destroy_compress(&cinfo);
+    if (!raw_jpeg)
+      jpeg_destroy_compress(&cinfo);
     free(jpegbuf);
   }
 #endif
@@ -1862,7 +1909,7 @@ cleanup:
   expected_bytes = ((uint64_t)parm.bytes_per_line) * parm.lines *
     ((parm.format == SANE_FRAME_RGB
       || parm.format == SANE_FRAME_GRAY) ? 1 : 3);
-  if (parm.lines < 0)
+  if (parm.lines < 0 || parm.format == SANE_FRAME_JPEG)
     expected_bytes = 0;
   if (total_bytes > expected_bytes && expected_bytes != 0)
     {
@@ -1904,8 +1951,6 @@ test_it (void)
   SANE_Parameters parm;
   SANE_Status status;
   Image image = { 0, 0, 0, 0, 0, 0 };
-  static const char *format_name[] =
-    { "gray", "RGB", "red", "green", "blue" };
 
 #ifdef SANE_STATUS_WARMING_UP
   do
@@ -1942,7 +1987,7 @@ test_it (void)
 	     prog_name, parm.pixels_per_line,
 	     parm.depth * (SANE_FRAME_RGB == parm.format ? 3 : 1));
   fprintf (stderr, "%s: acquiring %s frame, %d bits/sample\n", prog_name,
-	   parm.format <= SANE_FRAME_BLUE ? format_name[parm.format]:"Unknown",
+	   frame_name (parm.format),
            parm.depth);
 
   image.data = malloc (parm.bytes_per_line * 2);
