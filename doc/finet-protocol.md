@@ -345,6 +345,31 @@ differs from the backend's in: `automaticSize` `enable` with `bgColor`
 values `rgb24`, `devidedSize` and `feeder`. Image URIs were of the form
 `/image/<n>_end.jpeg`.
 
+## The same scanner over USB
+
+The fi-8950 also answers the fujitsu backend's SCSI-over-USB command set
+(USB id 05ca:0309), and measured the same way it is faster than the
+network: with the backend's defaults 580 ms per side, because the
+scanner stops after every sheet and sends 25 MB of raw RGB per side;
+with `buffermode` on 361 ms; with `buffermode` on and `compression`
+JPEG 166 to 174 ms per side, the rated speed, with sheets arriving in
+pairs 0.65 s apart. JPEG without buffer mode is 337 ms. The backend's
+`buffer-size` option must stay large (256 KB): at 4 KB each side costs
+about 200 USB round trips and 580 ms again.
+
+Stopping a batch early over USB used to lose the sheets the scanner had
+taken ahead, since the backend can only cancel, and the OBJECT POSITION
+halt command is accepted but ignored (the inquiry "object position halt"
+bit is 0). The scanner does set the "pause host" inquiry bit (byte 0x70
+bit 3), and probing the unassigned SCANNER CONTROL function codes while
+idle finds two it accepts: 0x0d pauses the feeder while keeping the
+sheets already taken, 0x0e resumes. After 0x0d every OBJECT POSITION
+feed returns a buffered sheet until none are left, when the scanner
+answers sense 03/80/32 "scanning paused"; a cancel then ends the batch
+and the next one starts normally. The backend's `stop-feed` button sends
+0x0d and turns that sense into SANE_STATUS_NO_DOCS, which is the USB
+counterpart of `stopCapturing` with `pauseScanning`.
+
 ## Things not known
 
 * The attribute that selects single-sided scanning, if any: the
