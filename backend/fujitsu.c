@@ -1774,7 +1774,8 @@ init_vpd (struct fujitsu *s)
     s->has_staple_detect = get_IN_staple_det(in);
     DBG (15, "  staple det: %d\n", s->has_staple_detect);
 
-    DBG (15, "  pause host: %d\n", get_IN_pause_host(in));
+    s->has_pause_host = get_IN_pause_host(in);
+    DBG (15, "  pause host: %d\n", s->has_pause_host);
     DBG (15, "  pause panel: %d\n", get_IN_pause_panel(in));
     DBG (15, "  pause conf: %d\n", get_IN_pause_conf(in));
     DBG (15, "  hq print: %d\n", get_IN_hq_print(in));
@@ -4173,6 +4174,21 @@ sane_get_option_descriptor (SANE_Handle handle, SANE_Int option)
     s->buffer_size_range.quant = 4096;
   }
 
+  /* stop the feeder part way through a batch, keeping what is inside */
+  if(option==OPT_STOP_FEED){
+    opt->name = "stop-feed";
+    opt->title = SANE_I18N ("Stop feed");
+    opt->desc = SANE_I18N ("Halt the paper feed during a batch but keep the sheets the scanner has already taken: the batch ends once they have been read.");
+    opt->type = SANE_TYPE_BUTTON;
+    opt->unit = SANE_UNIT_NONE;
+    opt->size = 0;
+    if (s->has_pause_host)
+      opt->cap = SANE_CAP_SOFT_SELECT | SANE_CAP_SOFT_DETECT | SANE_CAP_ADVANCED;
+    else
+      opt->cap = SANE_CAP_INACTIVE;
+    opt->constraint_type = SANE_CONSTRAINT_NONE;
+  }
+
   /* "Endorser" group ------------------------------------------------------ */
   if(option==OPT_ENDORSER_GROUP){
     opt->name = "endorser-options";
@@ -5161,6 +5177,9 @@ sane_control_option (SANE_Handle handle, SANE_Int option,
           *val_p = s->buffer_size;
           return SANE_STATUS_GOOD;
 
+        case OPT_STOP_FEED:
+          return SANE_STATUS_GOOD;
+
         /* Endorser Group */
         case OPT_ENDORSER:
           *val_p = s->u_endorser;
@@ -5346,6 +5365,10 @@ sane_control_option (SANE_Handle handle, SANE_Int option,
       SANE_Status status;
 
       DBG (20, "sane_control_option: set value for '%s' (%d)\n", s->opt[option].name,option);
+
+      /* the one option that only makes sense while a batch is running */
+      if (option == OPT_STOP_FEED)
+        return stop_feed (s);
 
       if ( s->started ) {
         DBG (5, "sane_control_option: can't set, device busy\n");
@@ -6997,6 +7020,7 @@ sane_start (SANE_Handle handle)
 
   /* batch start? initialize struct and scanner */
   if(!s->started){
+      s->feed_stopped = 0;
 
       /* load side marker */
       if(s->source == SOURCE_ADF_BACK || s->source == SOURCE_CARD_BACK){
@@ -7157,12 +7181,24 @@ sane_start (SANE_Handle handle)
       s->jpeg_back_rst = 0;
 
       ret = object_position (s, OP_Feed);
+      /* a paused feeder answers "scanning paused" once the sheets it had
+       * taken are all read: that is the end of the batch, not an error */
+      if (s->feed_stopped && (ret == SANE_STATUS_DEVICE_BUSY
+                              || ret == SANE_STATUS_NO_DOCS)) {
+        DBG (10, "sane_start: feeder stopped and drained (%d)\n", ret);
+        ret = SANE_STATUS_NO_DOCS;
+      }
       if (ret != SANE_STATUS_GOOD) {
         DBG (5, "sane_start: ERROR: cannot load page\n");
         goto errors;
       }
 
       ret = start_scan (s);
+      if (s->feed_stopped && (ret == SANE_STATUS_DEVICE_BUSY
+                              || ret == SANE_STATUS_NO_DOCS)) {
+        DBG (10, "sane_start: feeder stopped and drained at scan (%d)\n", ret);
+        ret = SANE_STATUS_NO_DOCS;
+      }
       if (ret != SANE_STATUS_GOOD) {
         DBG (5, "sane_start: ERROR: cannot start_scan\n");
         goto errors;
@@ -8003,6 +8039,30 @@ start_scan (struct fujitsu *s)
   return ret;
 }
 
+/* Pause the feeder part way through a batch without cancelling it. The
+ * scanner keeps the sheets it has already taken, so sane_start() carries
+ * on delivering them and answers SANE_STATUS_NO_DOCS once they are gone,
+ * which is when the scanner reports "scanning paused" to the next feed.
+ * The pause function is not in any public command reference: on the
+ * fi-8950 SCANNER CONTROL 0x0d pauses and 0x0e resumes, and the
+ * "pause host" inquiry bit says whether the scanner offers it */
+static SANE_Status
+stop_feed (struct fujitsu *s)
+{
+  SANE_Status ret;
+
+  DBG (10, "stop_feed: start %d %d\n", s->started, s->feed_stopped);
+  if (!s->started)
+    return SANE_STATUS_INVAL;
+  if (s->feed_stopped)
+    return SANE_STATUS_GOOD;
+  ret = scanner_control (s, SC_function_pause);
+  if (ret == SANE_STATUS_GOOD)
+    s->feed_stopped = 1;
+  DBG (10, "stop_feed: finish %d\n", ret);
+  return ret;
+}
+
 /* checks started and cancelled flags in scanner struct,
  * sends cancel command to scanner if required. don't call
  * this function asynchronously, wait for pending operation */
@@ -8035,6 +8095,7 @@ check_for_cancel(struct fujitsu *s)
 
     s->started = 0;
     s->cancelled = 0;
+    s->feed_stopped = 0;
   }
   else if(s->cancelled){
     DBG (15, "check_for_cancel: already cancelled\n");

@@ -91,6 +91,16 @@ Other options will be available based on the capabilities of the scanner:
 machines with IPC or DTC will have additional enhancement options, those
 with CMP will have compression options, those with a printer will have a
 group of endorser options.
+.PP
+.B stop-feed
+.RS
+A button, offered by scanners that can be paused from the host, which halts
+the ADF part way through a batch while keeping the sheets the scanner has
+already taken. The frontend carries on reading pages until the scanner
+reports that it has none left, so a batch that is stopped early still
+yields every sheet that went through the feeder. This is what a
+frontend's Stop button should press in place of cancelling.
+.RE
 
 Additionally, several 'software' options are exposed by the backend. These
 are reimplementations of features provided natively by larger scanners, but
