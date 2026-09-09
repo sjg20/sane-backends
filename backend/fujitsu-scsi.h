@@ -844,6 +844,10 @@ putnbyte (unsigned char *pnt, unsigned int value, unsigned int nbytes)
 #define SC_function_scan_complete              0x09
 #define SC_function_eject_complete             0x0a
 #define SC_function_manual_feed                0x0c
+/* pause and resume the ADF mid-batch, keeping the sheets already taken.
+ * Undocumented; found on the fi-8950, which sets the "pause host" bit */
+#define SC_function_pause                      0x0d
+#define SC_function_resume                     0x0e
 #define SC_function_mfeed                      0x0f
 #define SC_function_continuous                 0x1f
 #define SC_function_rpath                      0x2f
