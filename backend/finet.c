@@ -2058,6 +2058,12 @@ sane_start (SANE_Handle handle)
   s->cancelled = SANE_FALSE;
   s->eof_pending = SANE_FALSE;
   s->image_pos = 0;
+  /* sane_cancel() sets the abort flag and relies on close_session() to
+     clear it, which it does not do when there is no session left to
+     close, as at the end of a batch. Clear it here, since nothing this
+     start does should be abandoned by a cancel that has already been
+     dealt with */
+  s->pf.abort = SANE_FALSE;
 
   /* the first sheet of a batch starts the feeder, which then runs
      until the hopper is empty or the scan is cancelled */
