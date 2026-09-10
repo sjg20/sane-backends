@@ -448,6 +448,13 @@ command (struct finet_scanner *s, const char *method, const char *params,
       && !strstr ((const char *) buf->data, "\"status\":\"noImage\""))
     {
       DBG (1, "%s failed: %.300s\n", method, (const char *) buf->data);
+      /* sessions are exclusive: another client holds the scanner, or a
+         session left open by one that died still does until the scanner
+         times it out. Nothing is wrong with the link, so say the device
+         is busy and let the caller wait rather than tear the
+         connection down */
+      if (strstr ((const char *) buf->data, "\"status\":\"busyPsip\""))
+        return SANE_STATUS_DEVICE_BUSY;
       return SANE_STATUS_IO_ERROR;
     }
   return SANE_STATUS_GOOD;
