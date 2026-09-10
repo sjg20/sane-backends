@@ -88,6 +88,9 @@
 
 #define FINET_CONFIG_FILE "finet.conf"
 #define FINET_TOKEN "***CLIENTACCESSTOKEN***"
+
+/* curl's receive buffer, big enough to take a page's JPEG in a few reads */
+#define RECV_BUFFER (256 * 1024)
 #define FINET_DEFAULT_PORT 80
 
 /* the scanners answer a broadcast probe on this UDP port with a packet
@@ -318,6 +321,12 @@ http (struct finet_scanner *s, const char *path, const char *body,
 
   curl_easy_reset (s->curl);
   curl_easy_setopt (s->curl, CURLOPT_URL, url);
+  /* a page's JPEG is several hundred kilobytes and curl_easy_reset()
+     puts the receive buffer back to its 16 KB default, so ask for a
+     larger one: the body then arrives in a handful of reads rather than
+     dozens. The transfer itself is paced by the scanner, so this saves
+     work rather than time */
+  curl_easy_setopt (s->curl, CURLOPT_BUFFERSIZE, (long) RECV_BUFFER);
   /* let a cancel cut short a readImageBlock the scanner is holding */
   curl_easy_setopt (s->curl, CURLOPT_NOPROGRESS, 0L);
   curl_easy_setopt (s->curl, CURLOPT_XFERINFOFUNCTION, progress_cb);
