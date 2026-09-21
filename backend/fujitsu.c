@@ -9749,6 +9749,28 @@ do_scsi_cmd(struct fujitsu *s, int runRS, int shortTime,
   return ret;
 }
 
+/* Put the pipes back in step after a command goes wrong.
+
+   The scanner answers a command in parts: the data it was asked for,
+   then a status byte, and then it is ready for the next command. A
+   command that fails part way through leaves the rest of its answer in
+   the pipe, and that is read as the head of the next command's answer:
+   every command after it is a part behind, which shows up as short
+   reads and looks like a scanner that has stopped talking. A paper jam
+   does exactly this, since the scan command is left unanswered while
+   the scanner deals with the paper.
+
+   Clearing the endpoints throws away whatever is waiting on them and
+   resets the data toggle, so the next command starts afresh. */
+
+static void
+usb_resync (struct fujitsu *s)
+{
+  DBG (5, "usb_resync: clearing the pipes\n");
+  sanei_usb_clear_halt (s->fd);
+}
+
+
 SANE_Status
 do_usb_cmd(struct fujitsu *s, int runRS, int shortTime,
  unsigned char * cmdBuff, size_t cmdLen,
@@ -9800,14 +9822,17 @@ do_usb_cmd(struct fujitsu *s, int runRS, int shortTime,
 
     if(ret == SANE_STATUS_EOF){
         DBG(5,"cmd: got EOF, returning IO_ERROR\n");
+        usb_resync (s);
         return SANE_STATUS_IO_ERROR;
     }
     if(ret != SANE_STATUS_GOOD){
         DBG(5,"cmd: return error '%s'\n",sane_strstatus(ret));
+        usb_resync (s);
         return ret;
     }
     if(usb_cmdLen != USB_COMMAND_LEN){
         DBG(5,"cmd: wrong size %d/%d\n", USB_COMMAND_LEN, (int)usb_cmdLen);
+        usb_resync (s);
         return SANE_STATUS_IO_ERROR;
     }
 
@@ -9824,14 +9849,17 @@ do_usb_cmd(struct fujitsu *s, int runRS, int shortTime,
 
         if(ret == SANE_STATUS_EOF){
             DBG(5,"out: got EOF, returning IO_ERROR\n");
+            usb_resync (s);
             return SANE_STATUS_IO_ERROR;
         }
         if(ret != SANE_STATUS_GOOD){
             DBG(5,"out: return error '%s'\n",sane_strstatus(ret));
+            usb_resync (s);
             return ret;
         }
         if(usb_outLen != outLen){
             DBG(5,"out: wrong size %d/%d\n", (int)outLen, (int)usb_outLen);
+            usb_resync (s);
             return SANE_STATUS_IO_ERROR;
         }
     }
@@ -9858,6 +9886,7 @@ do_usb_cmd(struct fujitsu *s, int runRS, int shortTime,
 
         if(ret != SANE_STATUS_GOOD){
             DBG(5,"in: return error '%s'\n",sane_strstatus(ret));
+            usb_resync (s);
             return ret;
         }
 
@@ -9887,10 +9916,12 @@ do_usb_cmd(struct fujitsu *s, int runRS, int shortTime,
 
     if(ret2 == SANE_STATUS_EOF){
         DBG(5,"stat: got EOF, returning IO_ERROR\n");
+        usb_resync (s);
         return SANE_STATUS_IO_ERROR;
     }
     if(ret2 != SANE_STATUS_GOOD){
         DBG(5,"stat: return error '%s'\n",sane_strstatus(ret2));
+        usb_resync (s);
         return ret2;
     }
     if(usb_statLen != USB_STATUS_LEN){
