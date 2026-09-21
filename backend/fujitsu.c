@@ -6076,6 +6076,19 @@ get_hardware_status (struct fujitsu *s, SANE_Int option)
                 s->hw_ink_remain = get_GHS_ink_remain(in);
               }
 
+              /* what the scanner says about itself, in one line, so a
+                 log shows which of these changes when it stops working
+                 with the application */
+              DBG (15, "ghs: top %d hopper %d adf_open %d card %d sleep %d "
+                   "scan_sw %d send_sw %d manual %d func %d omr %d "
+                   "double_feed %d err 0x%02x skew %d\n",
+                   s->hw_top, s->hw_hopper, s->hw_adf_open,
+                   s->hw_card_loaded, s->hw_sleep, s->hw_scan_sw,
+                   s->hw_send_sw, s->hw_manual_feed, s->hw_function,
+                   s->hw_omr, s->hw_double_feed, s->hw_error_code,
+                   s->hw_skew_angle);
+              hexdump (15, "ghs: <<", in, inLen);
+
               ret = SANE_STATUS_GOOD;
           }
       }
