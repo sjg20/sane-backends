@@ -9458,6 +9458,10 @@ sense_handler (int fd, unsigned char * sensed_data, void *arg)
         DBG  (5, "Medium error: ADF blocked by card\n");
         return SANE_STATUS_JAMMED;
       }
+      if (0x0e == ascq) {
+        DBG  (5, "Medium error: paper protection\n");
+        return SANE_STATUS_JAMMED;
+      }
       if (0x10 == ascq) {
         DBG  (5, "Medium error: no ink cartridge\n");
         return SANE_STATUS_IO_ERROR;
@@ -9494,8 +9498,11 @@ sense_handler (int fd, unsigned char * sensed_data, void *arg)
         DBG  (5, "Medium error: WiFi control error\n");
         return SANE_STATUS_IO_ERROR;
       }
+      /* a medium error is a paper error, whatever the code: saying the
+         device had an I/O error sends the front end looking at the
+         connection when the user should be looking at the paper path */
       DBG  (5, "Medium error: unknown ascq\n");
-      return SANE_STATUS_IO_ERROR;
+      return SANE_STATUS_JAMMED;
       break;
 
     case 0x4:
